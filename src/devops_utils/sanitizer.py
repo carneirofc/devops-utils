@@ -36,9 +36,16 @@ def sanitize(data, debug: bool = False):
     return out_objs
 
 
-def dump_yaml(data, filename: str, force: bool):
-    if not filename:
+def dump_yaml(data, filename: str, force: bool, debug: bool):
+    if not filename or not filename.strip():
         raise ValueError(f"filename '{filename}' is invalid")
+
+    if debug:
+        eprint(f"Salvando yaml em '{filename}'")
+
+    if filename == "-":
+        print(yaml.dump_all(data, default_flow_style=False))
+        return
 
     if os.path.exists(filename) and not force:
         confirm = input_confirm(f"File '{filename}' already exists, confirm overwrite?")
@@ -46,12 +53,15 @@ def dump_yaml(data, filename: str, force: bool):
             raise RuntimeError(f"Operation aborted, file '{filename}' already exists")
 
     with open(filename, "w+") as stream:
-        yaml.dump_all(data, stream, default_flow_style=False)
+        yaml.dump_all(data, stream=stream, default_flow_style=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", type=str, help="Nome do arquivo yaml")
+    parser.add_argument(
+        "--output", type=str, help="Nome do arquivo de saída, utilize '-' para stdout"
+    )
     parser.add_argument(
         "--force",
         action="store_true",
@@ -65,9 +75,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     filename: str = args.file
+    outfilename: str = args.output
+    if not outfilename:
+        outfilename = f"{filename}__debug__"
+    else:
+        outfilename = outfilename.strip()
+
     force: bool = args.force
     debug: bool = args.debug
 
     data = load_file(filename)
     sanitized = sanitize(data, debug=debug)
-    dump_yaml(sanitized, force=force, filename=f"{filename}__debug__")
+    dump_yaml(sanitized, force=force, filename=outfilename, debug=debug)
