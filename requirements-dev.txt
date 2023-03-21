@@ -5,3 +5,5 @@ flake8
 flake8-bugbear
 flake8-implicit-str-concat
 pre-commit
+sphinx_rtd_theme
+pytest
