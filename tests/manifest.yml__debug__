@@ -1,0 +1,302 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: settingsapi
+    app.kubernetes.io/version: 1.16.0
+    helm.sh/chart: settingsapi-0.1.0
+  name: release-name-settingsapi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APP1/1.0
+    file: appSettings.Desenvolvimento.json
+  name: _c--a--app1--1-0--appsettings-d-json
+stringData:
+  appSettings.Desenvolvimento.json: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APP1/1.0
+    file: appSettings.Homologacao.json
+  name: _c--a--app1--1-0--appsettings-h-json
+stringData:
+  appSettings.Homologacao.json: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APP1/1.0
+    file: appSettings.Producao.json
+  name: _c--a--app1--1-0--appsettings-p-json
+stringData:
+  appSettings.Producao.json: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APP2/1.0
+    file: test1.json.tmlplt
+  name: _c--a--app2--1-0--test1-json-tmlplt
+stringData:
+  test1.json.tmlplt: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APP2
+    file: test1.json.tmlplt
+  name: _c--a--app2--test1-json-tmlplt
+stringData:
+  test1.json.tmlplt: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APPxxxxxxxxxxxxxx/1.0
+    file: appSettings.Desenvolvimento.json
+  name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-d-json
+stringData:
+  appSettings.Desenvolvimento.json: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APPxxxxxxxxxxxxxx/1.0
+    file: appSettings.Homologacao.json
+  name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-h-json
+stringData:
+  appSettings.Homologacao.json: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes/APPxxxxxxxxxxxxxx/1.0
+    file: appSettings.Producao.json
+  name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-p-json
+stringData:
+  appSettings.Producao.json: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Aplicacoes
+    file: restttt.json.tmlplt
+  name: _c--a--restttt-json-tmlplt
+stringData:
+  restttt.json.tmlplt: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Comum
+    file: appsettings.1.tmlplt
+  name: _c--c--appsettings-1-tmlplt
+stringData:
+  appsettings.1.tmlplt: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Comum
+    file: appsettings.2.tmlplt
+  name: _c--c--appsettings-2-tmlplt
+stringData:
+  appsettings.2.tmlplt: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    dir: _Config/Comum
+    file: appsettings.3.tmlplt
+  name: _c--c--appsettings-3-tmlplt
+stringData:
+  appsettings.3.tmlplt: '***secret_hidden**'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: settingsapi
+    app.kubernetes.io/version: 1.16.0
+    helm.sh/chart: settingsapi-0.1.0
+  name: release-name-settingsapi
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/name: settingsapi
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: settingsapi
+    app.kubernetes.io/version: 1.16.0
+    helm.sh/chart: settingsapi-0.1.0
+  name: release-name-settingsapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/name: settingsapi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/name: settingsapi
+    spec:
+      containers:
+      - image: nginx:1.16.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+        name: settingsapi
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+        resources: {}
+        securityContext: {}
+        volumeMounts:
+        - mountPath: _Config/Aplicacoes/APP1/1.0/appSettings.Desenvolvimento.json
+          name: _c--a--app1--1-0--appsettings-d-json
+          readOnly: true
+          subPath: appSettings.Desenvolvimento.json
+        - mountPath: _Config/Aplicacoes/APP1/1.0/appSettings.Homologacao.json
+          name: _c--a--app1--1-0--appsettings-h-json
+          readOnly: true
+          subPath: appSettings.Homologacao.json
+        - mountPath: _Config/Aplicacoes/APP1/1.0/appSettings.Producao.json
+          name: _c--a--app1--1-0--appsettings-p-json
+          readOnly: true
+          subPath: appSettings.Producao.json
+        - mountPath: _Config/Aplicacoes/APP2/1.0/test1.json.tmlplt
+          name: _c--a--app2--1-0--test1-json-tmlplt
+          readOnly: true
+          subPath: test1.json.tmlplt
+        - mountPath: _Config/Aplicacoes/APP2/test1.json.tmlplt
+          name: _c--a--app2--test1-json-tmlplt
+          readOnly: true
+          subPath: test1.json.tmlplt
+        - mountPath: _Config/Aplicacoes/APPxxxxxxxxxxxxxx/1.0/appSettings.Desenvolvimento.json
+          name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-d-json
+          readOnly: true
+          subPath: appSettings.Desenvolvimento.json
+        - mountPath: _Config/Aplicacoes/APPxxxxxxxxxxxxxx/1.0/appSettings.Homologacao.json
+          name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-h-json
+          readOnly: true
+          subPath: appSettings.Homologacao.json
+        - mountPath: _Config/Aplicacoes/APPxxxxxxxxxxxxxx/1.0/appSettings.Producao.json
+          name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-p-json
+          readOnly: true
+          subPath: appSettings.Producao.json
+        - mountPath: _Config/Aplicacoes/restttt.json.tmlplt
+          name: _c--a--restttt-json-tmlplt
+          readOnly: true
+          subPath: restttt.json.tmlplt
+        - mountPath: _Config/Comum/appsettings.1.tmlplt
+          name: _c--c--appsettings-1-tmlplt
+          readOnly: true
+          subPath: appsettings.1.tmlplt
+        - mountPath: _Config/Comum/appsettings.2.tmlplt
+          name: _c--c--appsettings-2-tmlplt
+          readOnly: true
+          subPath: appsettings.2.tmlplt
+        - mountPath: _Config/Comum/appsettings.3.tmlplt
+          name: _c--c--appsettings-3-tmlplt
+          readOnly: true
+          subPath: appsettings.3.tmlplt
+      securityContext: {}
+      serviceAccountName: release-name-settingsapi
+      volumes:
+      - name: _c--a--app1--1-0--appsettings-d-json
+        secret:
+          secretName: _c--a--app1--1-0--appsettings-d-json
+      - name: _c--a--app1--1-0--appsettings-h-json
+        secret:
+          secretName: _c--a--app1--1-0--appsettings-h-json
+      - name: _c--a--app1--1-0--appsettings-p-json
+        secret:
+          secretName: _c--a--app1--1-0--appsettings-p-json
+      - name: _c--a--app2--1-0--test1-json-tmlplt
+        secret:
+          secretName: _c--a--app2--1-0--test1-json-tmlplt
+      - name: _c--a--app2--test1-json-tmlplt
+        secret:
+          secretName: _c--a--app2--test1-json-tmlplt
+      - name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-d-json
+        secret:
+          secretName: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-d-json
+      - name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-h-json
+        secret:
+          secretName: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-h-json
+      - name: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-p-json
+        secret:
+          secretName: _c--a--appxxxxxxxxxxxxxx--1-0--appsettings-p-json
+      - name: _c--a--restttt-json-tmlplt
+        secret:
+          secretName: _c--a--restttt-json-tmlplt
+      - name: _c--c--appsettings-1-tmlplt
+        secret:
+          secretName: _c--c--appsettings-1-tmlplt
+      - name: _c--c--appsettings-2-tmlplt
+        secret:
+          secretName: _c--c--appsettings-2-tmlplt
+      - name: _c--c--appsettings-3-tmlplt
+        secret:
+          secretName: _c--c--appsettings-3-tmlplt
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    helm.sh/hook: test
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: settingsapi
+    app.kubernetes.io/version: 1.16.0
+    helm.sh/chart: settingsapi-0.1.0
+  name: release-name-settingsapi-test-connection
+spec:
+  containers:
+  - args:
+    - release-name-settingsapi:80
+    command:
+    - wget
+    image: busybox
+    name: wget
+  restartPolicy: Never

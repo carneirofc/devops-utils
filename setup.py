@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import pkg_resources
+import os
 
 from setuptools import setup, find_packages
 from src.devops_utils import __author__, __version__, __email__
@@ -17,8 +18,10 @@ def get_long_description() -> str:
 
     long_description += "\n\n"
 
-    with open(get_abs_path("CHANGES.md"), "r") as _f:
-        long_description += _f.read().strip()
+    changes_file = get_abs_path("CHANGES.md")
+    if os.path.exists(changes_file):
+        with open(changes_file, "r") as _f:
+            long_description += _f.read().strip()
 
     return long_description
 
