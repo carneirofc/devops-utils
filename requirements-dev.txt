@@ -1,0 +1,7 @@
+bandit
+black
+mypy
+flake8
+flake8-bugbear
+flake8-implicit-str-concat
+pre-commit

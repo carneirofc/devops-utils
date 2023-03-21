@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+# Update repository version
+original_version=$(grep -oP '(?<=__version__ = ").*(?=")' src/devops_utils/__init__.py)
+
+[ -z "$(git describe --tags)" ] && exit 0
+
+sed -i -e "s/__version__ =.*/__version__ = \"$(git describe --tags)\"/" src/devops_utils/__init__.py
+
+new_version=$(grep -oP '(?<=__version__ = ").*(?=")' src/devops_utils/__init__.py)
+
+if [ ! "${original_version}" = "${new_version}" ]; then
+    echo "Repo version update ${original_version} != ${new_version}"
+    exit 1
+fi
+
+exit 0
