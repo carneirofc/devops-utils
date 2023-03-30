@@ -26,6 +26,15 @@ repos:
         additional_dependencies:
           - flake8-bugbear
           - flake8-implicit-str-concat
+          - flake8-comprehensions
+          - flake8-simplify
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.1.1
+    hooks:
+      - id: mypy
+      # args: [--no-strict-optional, --ignore-missing-imports]
+      # additional_dependencies: [tokenize-rt==3.2.0]
 
   - repo: local
     hooks:
