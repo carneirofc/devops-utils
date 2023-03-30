@@ -1,4 +1,4 @@
-name: Lint
+name: Security
 
 on: [push, pull_request]
 
