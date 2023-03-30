@@ -2,4 +2,4 @@
 
 __author__ = "Cláudio Ferreira Carneiro"
 __email__ = "claudiofcarneiro@hotmail.com"
-__version__ = "0.0.6-2-g117c378"
+__version__ = "0.0.6-3-geb0487b"
