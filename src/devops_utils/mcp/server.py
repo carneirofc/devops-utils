@@ -19,6 +19,8 @@ def _build_server():
             "Install it with: pip install devops-utils[mcp]"
         ) from exc
 
+    from devops_utils.agent import tools as agent_tools
+
     server = FastMCP("devops-utils")
 
     @server.tool()
@@ -33,6 +35,22 @@ def _build_server():
         """
         sanitized = _sanitize(manifest)
         return yaml.dump_all(sanitized, default_flow_style=False)
+
+    # Azure DevOps work-item tools. Registered from the framework-agnostic agent
+    # wrappers so the logic (and docstrings the LLM reads) live in one place.
+    # Config comes from AZURE_DEVOPS_ORG_URL / AZURE_DEVOPS_TOKEN env vars.
+    for fn in (
+        agent_tools.azdo_list_repositories,
+        agent_tools.azdo_list_work_items,
+        agent_tools.azdo_search_work_items,
+        agent_tools.azdo_get_work_item,
+        agent_tools.azdo_create_work_item,
+        agent_tools.azdo_comment_work_item,
+        agent_tools.azdo_set_work_item_tags,
+        agent_tools.azdo_add_work_item_link,
+        agent_tools.azdo_add_work_item_attachment,
+    ):
+        server.tool()(fn)
 
     return server
 
