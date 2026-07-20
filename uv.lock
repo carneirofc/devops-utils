@@ -360,9 +360,13 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "httpx" },
     { name = "mcp" },
     { name = "pyside6" },
     { name = "textual" },
+]
+azure = [
+    { name = "httpx" },
 ]
 docs = [
     { name = "sphinx" },
@@ -391,6 +395,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click" },
+    { name = "httpx", marker = "extra == 'all'" },
+    { name = "httpx", marker = "extra == 'azure'" },
     { name = "mcp", marker = "extra == 'all'" },
     { name = "mcp", marker = "extra == 'mcp'" },
     { name = "pyside6", marker = "extra == 'all'" },
@@ -401,7 +407,7 @@ requires-dist = [
     { name = "textual", marker = "extra == 'all'" },
     { name = "textual", marker = "extra == 'tui'" },
 ]
-provides-extras = ["agent", "all", "docs", "mcp", "qt", "tui"]
+provides-extras = ["agent", "all", "azure", "docs", "mcp", "qt", "tui"]
 
 [package.metadata.requires-dev]
 dev = [

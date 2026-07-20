@@ -34,9 +34,10 @@ Documentation = "https://carneirofc.github.io/devops-utils/"
 mcp = ["mcp"]
 tui = ["textual"]
 qt = ["PySide6"]
+azure = ["httpx"]
 agent = []
 docs = ["sphinx", "sphinx_rtd_theme"]
-all = ["mcp", "textual", "PySide6"]
+all = ["mcp", "textual", "PySide6", "httpx"]
 
 [project.scripts]
 devops-utils = "devops_utils.cli.main:cli"
