@@ -3,6 +3,7 @@
 import click
 
 from devops_utils import __version__
+from devops_utils.cli.commands.azdo import azdo
 from devops_utils.cli.commands.sanitize import sanitize
 
 
@@ -13,6 +14,7 @@ def cli() -> None:
 
 
 cli.add_command(sanitize)
+cli.add_command(azdo)
 
 
 if __name__ == "__main__":
