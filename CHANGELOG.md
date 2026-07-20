@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `azdo create --parent <id>` / `azdo_create_work_item(parent=...)`: create a
+  work item directly under a parent (e.g. a Task under a User Story) in one
+  call.
+- `azdo get --relations` / `azdo_get_work_item(relations=True)`: return the
+  item's relations (parent/child, related, dependency, hyperlink, attachment
+  and commit/PR/branch links) as trimmed `{kind, target, ...}` dicts.
+- `azdo unlink` (CLI) / `azdo_remove_work_item_link` (MCP + agent callable):
+  remove a reference using the same kind/value pairs as `link`, enabling
+  re-parenting and link cleanup.
+
 - `azdo update` (CLI) / `azdo_update_work_item` (MCP + agent callable): change
   an existing work item's state (close/resolve), assignee, title, or
   description.

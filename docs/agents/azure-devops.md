@@ -17,9 +17,9 @@ Windows credential store). Everything comes from environment variables:
 
 ## Surfaces
 
-The same ten operations are exposed three ways, all reading the env vars above:
+The same eleven operations are exposed three ways, all reading the env vars above:
 
-- **CLI**: `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,attach}`
+- **CLI**: `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,unlink,attach}`
 - **MCP tools**: `azdo_*` (run `devops-utils-mcp`)
 - **Agent callables**: `devops_utils.agent.tools.azdo_*`
 
@@ -41,6 +41,23 @@ One entry point covers every reference kind:
 | `predecessor` | — | target work-item id | `System.LinkTypes.Dependency-Reverse` |
 | `successor` | — | target work-item id | `System.LinkTypes.Dependency-Forward` |
 | `hyperlink` | — | raw URL | `Hyperlink` |
+
+`unlink` (`azdo unlink` / `azdo_remove_work_item_link`) removes a reference
+using the same kind/value pairs — e.g. re-parenting is
+`unlink --kind parent --value <old>` followed by `link --kind parent --value <new>`.
+The relation is located by rel type + URL and removed by index with a guarding
+JSON-Patch `test` op.
+
+## Hierarchy (parent/child)
+
+- **Create under a parent**: `azdo create --parent <id>` /
+  `azdo_create_work_item(..., parent=<id>)` links the new item under an existing
+  one (e.g. a Task under a User Story) in the same API call.
+- **Read relations**: `azdo get <id> --relations` /
+  `azdo_get_work_item(id, relations=True)` returns a `relations` list of
+  `{kind, target, ...}` dicts — work-item kinds (`parent`, `child`,
+  `predecessor`, `successor`, `work_item`) carry the target work-item id;
+  `hyperlink`/`attachment`/artifact kinds carry the URL.
 
 `update` (`azdo update` / `azdo_update_work_item`) changes `System.State`,
 `System.AssignedTo`, `System.Title`, and/or `System.Description` on an existing
