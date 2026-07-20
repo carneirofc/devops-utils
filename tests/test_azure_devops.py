@@ -10,9 +10,13 @@ from devops_utils.core.azure_devops import (
     AzureDevOpsClient,
     AzureDevOpsError,
     add_attachment,
+    add_build_tags,
     add_link,
+    comment_on_pull_request,
     create_work_item,
+    get_build,
     get_work_item,
+    list_builds,
     remove_link,
     search_work_items,
     set_tags,
@@ -236,6 +240,16 @@ def test_hierarchy_and_dependency_link_relations(kind, relation):
     assert rel["url"].endswith("/_apis/wit/workItems/99")
 
 
+def test_add_build_link_uri_needs_no_repo():
+    reqs: list[httpx.Request] = []
+    add_link(_client(_record(reqs)), 7, "build", "1234")
+    assert len(reqs) == 1  # no repo-resolution GET
+    rel = json.loads(reqs[0].content)[0]["value"]
+    assert rel["rel"] == "ArtifactLink"
+    assert rel["url"] == "vstfs:///Build/Build/1234"
+    assert rel["attributes"]["name"] == "Build"
+
+
 def test_commit_link_requires_project_and_repo():
     with pytest.raises(ValueError, match="requires both"):
         add_link(_client(_record([])), 7, "commit", "abc")
@@ -369,6 +383,7 @@ def test_get_with_relations_expands_and_trims():
                         "attributes": {"name": "log.txt"},
                     },
                     {"rel": "ArtifactLink", "url": "vstfs:///Git/Commit/p%2Fr%2Fabc"},
+                    {"rel": "ArtifactLink", "url": "vstfs:///Build/Build/1234"},
                     {"rel": "Weird.Custom", "url": "https://y.test"},
                 ],
             },
@@ -382,6 +397,7 @@ def test_get_with_relations_expands_and_trims():
         ("hyperlink", "https://x.test"),
         ("attachment", "https://att.test/1"),
         ("commit", "vstfs:///Git/Commit/p%2Fr%2Fabc"),
+        ("build", "vstfs:///Build/Build/1234"),
         ("Weird.Custom", "https://y.test"),
     ]
     assert item["relations"][2]["comment"] == "c"
@@ -467,3 +483,171 @@ def test_remove_commit_link_resolves_repo():
     patch = [c for c in calls if c.method == "PATCH"][0]
     ops = json.loads(patch.content)
     assert ops[1] == {"op": "remove", "path": "/relations/0"}
+
+
+def test_remove_build_link():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 7,
+                    "fields": {},
+                    "relations": [
+                        {"rel": "ArtifactLink", "url": "vstfs:///Build/Build/1234"}
+                    ],
+                },
+            )
+        return httpx.Response(200, json={"id": 7, "fields": {}})
+
+    remove_link(_client(handler), 7, "build", "1234")
+    patch = [c for c in calls if c.method == "PATCH"][0]
+    assert json.loads(patch.content)[1] == {"op": "remove", "path": "/relations/0"}
+
+
+# --------------------------------------------------------------------------- #
+# builds
+# --------------------------------------------------------------------------- #
+RAW_BUILD = {
+    "id": 1234,
+    "buildNumber": "20260720.1",
+    "definition": {"id": 12, "name": "CI"},
+    "status": "completed",
+    "result": "succeeded",
+    "sourceBranch": "refs/heads/main",
+    "requestedFor": {"displayName": "Dev"},
+    "queueTime": "2026-07-20T10:00:00Z",
+    "finishTime": "2026-07-20T10:05:00Z",
+    "_links": {"web": {"href": "https://b.test/1234"}},
+}
+
+TRIMMED_BUILD = {
+    "id": 1234,
+    "number": "20260720.1",
+    "definition": "CI",
+    "status": "completed",
+    "result": "succeeded",
+    "branch": "refs/heads/main",
+    "requested_for": "Dev",
+    "queue_time": "2026-07-20T10:00:00Z",
+    "finish_time": "2026-07-20T10:05:00Z",
+    "web_url": "https://b.test/1234",
+}
+
+
+def test_list_builds_params_and_trim():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"count": 1, "value": [RAW_BUILD]})
+
+    builds = list_builds(
+        _client(handler),
+        "Proj",
+        definitions=[12, 13],
+        branch="main",
+        statuses=["completed"],
+        results=["succeeded", "failed"],
+        top=5,
+    )
+    req = reqs[0]
+    assert req.url.path.endswith("/Proj/_apis/build/builds")
+    assert req.url.params["$top"] == "5"
+    assert req.url.params["definitions"] == "12,13"
+    assert req.url.params["branchName"] == "refs/heads/main"
+    assert req.url.params["statusFilter"] == "completed"
+    assert req.url.params["resultFilter"] == "succeeded,failed"
+    assert builds == [TRIMMED_BUILD]
+
+
+def test_list_builds_keeps_full_refs():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"count": 0, "value": []})
+
+    list_builds(_client(handler), "Proj", branch="refs/tags/v1")
+    assert reqs[0].url.params["branchName"] == "refs/tags/v1"
+
+
+def test_get_build_path_and_trim():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json=RAW_BUILD)
+
+    build = get_build(_client(handler), "Proj", 1234)
+    assert reqs[0].url.path.endswith("/Proj/_apis/build/builds/1234")
+    assert build == TRIMMED_BUILD
+
+
+def test_add_build_tags_posts_raw_list():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"count": 2, "value": ["ok", "release"]})
+
+    tags = add_build_tags(_client(handler), "Proj", 1234, ["ok", "release"])
+    req = reqs[0]
+    assert req.method == "POST"
+    assert req.url.path.endswith("/Proj/_apis/build/builds/1234/tags")
+    assert json.loads(req.content) == ["ok", "release"]
+    assert tags == ["ok", "release"]
+
+
+def test_add_build_tags_requires_tags():
+    with pytest.raises(ValueError, match="tags must not be empty"):
+        add_build_tags(_client(_record([])), "Proj", 1234, [])
+
+
+# --------------------------------------------------------------------------- #
+# pull-request comments
+# --------------------------------------------------------------------------- #
+def test_pr_comment_creates_active_thread():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(
+            200, json={"id": 147, "status": "active", "comments": [{"id": 1}]}
+        )
+
+    result = comment_on_pull_request(_client(handler), "Proj", "R", 22, "LGTM")
+    req = reqs[0]
+    assert req.method == "POST"
+    assert req.url.path.endswith(
+        "/Proj/_apis/git/repositories/R/pullRequests/22/threads"
+    )
+    body = json.loads(req.content)
+    assert body["status"] == 1
+    assert body["comments"] == [
+        {"parentCommentId": 0, "content": "LGTM", "commentType": 1}
+    ]
+    assert result == {"thread_id": 147, "comment_id": 1, "status": "active"}
+
+
+def test_pr_comment_replies_to_existing_thread():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"id": 2, "content": "reply"})
+
+    result = comment_on_pull_request(
+        _client(handler), "Proj", "R", 22, "reply", thread_id=147
+    )
+    req = reqs[0]
+    assert req.url.path.endswith("/pullRequests/22/threads/147/comments")
+    assert json.loads(req.content) == {
+        "parentCommentId": 0,
+        "content": "reply",
+        "commentType": 1,
+    }
+    assert result == {"thread_id": 147, "comment_id": 2, "status": None}
