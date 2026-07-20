@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "devops-utils"
+description = "A set of utility tools for DevOps, usable as a CLI, TUI, Qt UI, MCP server, and agent tools."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Cláudio Ferreira Carneiro", email = "claudiofcarneiro@gmail.com" },
+]
+keywords = ["devops", "kubernetes", "cli", "mcp", "tui"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+dependencies = [
+    "pyyaml",
+    "click",
+]
+
+[project.urls]
+Homepage = "https://github.com/carneirofc/devops-utils"
+Repository = "https://github.com/carneirofc/devops-utils"
+Documentation = "https://carneirofc.github.io/devops-utils/"
+
+[project.optional-dependencies]
+mcp = ["mcp"]
+tui = ["textual"]
+qt = ["PySide6"]
+azure = ["httpx"]
+agent = []
+docs = ["sphinx", "sphinx_rtd_theme"]
+all = ["mcp", "textual", "PySide6", "httpx"]
+
+[project.scripts]
+devops-utils = "devops_utils.cli.main:cli"
+devops-utils-mcp = "devops_utils.mcp.server:main"
+
+[dependency-groups]
+dev = [
+    "bandit>=1.7",
+    "pytest>=8",
+    "mypy>=1.11",
+    "ruff>=0.6",
+    "pre-commit>=3.8",
+    "types-pyyaml",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/devops_utils"]
+# Bundled agent skills are data files the VCS selector may skip on a fresh
+# checkout (e.g. still-untracked); ensure every skill ships so `setup skills`
+# can read them via importlib.resources.
+artifacts = ["src/devops_utils/agent/skills/*.md"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "LICENSE"]
+
+# ---------------------------------------------------------------------------
+# Lint / format (Ruff) — replaces flake8 + black
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 88
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+# Ported from the old .flake8 select (B,C,E,F,W plus bugbear extras)
+select = ["E", "F", "W", "B", "C4", "SIM"]
+# Ported from the old .flake8 ignore list
+# W503/B907 were flake8/older-bugbear only and have no Ruff equivalent.
+ignore = ["E203", "E266", "E501", "B905"]
+
+# ---------------------------------------------------------------------------
+# Typing (mypy) — ported from .mypy.ini
+# ---------------------------------------------------------------------------
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+files = ["src", "tests"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,23 +1,29 @@
-import argparse
-import yaml
+"""Sanitize Kubernetes manifests by masking Secret values."""
+
 import os.path
 
-from devops_utils.utils import input_confirm, eprint
+import yaml
+
+from devops_utils.core.io import eprint, input_confirm
+
+# Mask placeholder written into sanitized output, not a real credential.
+SECRET_MASK = "***secret_hidden**"  # nosec B105
 
 
-def load_file(filename: str, debug: bool = False):
-    data = ""
-    with open(filename, "r") as f:
-        data = f.read()
-    return data
+def load_file(filename: str, debug: bool = False) -> str:
+    """Read a file and return its contents."""
+    with open(filename) as f:
+        return f.read()
 
 
 def sanitize(data, debug: bool = False):
+    """Mask ``data``/``stringData`` values of every Kubernetes ``Secret`` document."""
+
     def _hide(_obj, _key: str):
         if _key not in _obj:
             return
         for k, _ in _obj[_key].items():
-            obj[_key][k] = "***secret_hidden**"
+            obj[_key][k] = SECRET_MASK
             if debug:
                 name = (
                     obj["metadata"]["name"]
@@ -36,7 +42,8 @@ def sanitize(data, debug: bool = False):
     return out_objs
 
 
-def dump_yaml(data, filename: str, force: bool, debug: bool):
+def dump_yaml(data, filename: str, force: bool, debug: bool) -> None:
+    """Serialize ``data`` to ``filename`` (``-`` for stdout)."""
     if not filename or not filename.strip():
         raise ValueError(f"filename '{filename}' is invalid")
 
@@ -54,36 +61,3 @@ def dump_yaml(data, filename: str, force: bool, debug: bool):
 
     with open(filename, "w+") as stream:
         yaml.dump_all(data, stream=stream, default_flow_style=False)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file", type=str, help="Nome do arquivo yaml")
-    parser.add_argument(
-        "--output", type=str, help="Nome do arquivo de saída, utilize '-' para stdout"
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Força a operação, sobrescrevendo arquivos quando necessário",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Habilita saída de debug",
-    )
-    args = parser.parse_args()
-
-    filename: str = args.file
-    outfilename: str = args.output
-    if not outfilename:
-        outfilename = f"{filename}__debug__"
-    else:
-        outfilename = outfilename.strip()
-
-    force: bool = args.force
-    debug: bool = args.debug
-
-    data = load_file(filename)
-    sanitized = sanitize(data, debug=debug)
-    dump_yaml(sanitized, force=force, filename=outfilename, debug=debug)

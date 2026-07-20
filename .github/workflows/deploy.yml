@@ -8,25 +8,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: Production
+    permissions:
+      id-token: write  # trusted publishing
     steps:
-      - uses: actions/checkout@v3.4.0
-      - uses: actions/setup-python@v4.5.0
+      - uses: actions/checkout@v4
         with:
-          python-version: "3.x"
+          fetch-depth: 0  # tags needed for hatch-vcs versioning
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install setuptools wheel twine
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
 
-      - name: Build and publish
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          sed -i -e "s/__version__ =.*/__version__ = \"$(git describe --tags)\"/" src/devops_utils/__init__.py
-          sed -i -e "s/__date__ =.*/__date__ = \"$(date -R)\"/" src/devops_utils/__init__.py
-          cat src/devops_utils/__init__.py | grep 'version\|author'
-          python setup.py sdist bdist_wheel
-          twine upload dist/*
-          cd ..
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish

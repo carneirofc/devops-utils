@@ -1,8 +1,10 @@
+"""Small I/O helpers shared across surfaces."""
+
 import sys
 
 
-def input_confirm(message: str):
-    """Wait for user input, loop until a valid user input"""
+def input_confirm(message: str) -> bool:
+    """Wait for user input, loop until a valid user input."""
     _message = f"{message} y/n\n" if message else "Confirm operation? y/n\n"
     response = input(_message)
     while response.lower().strip() not in ("yes", "y", "n", "no"):
@@ -10,5 +12,6 @@ def input_confirm(message: str):
     return response.startswith("y")
 
 
-def eprint(*args, **kwargs):
+def eprint(*args, **kwargs) -> None:
+    """Print to stderr."""
     print(*args, file=sys.stderr, **kwargs)
