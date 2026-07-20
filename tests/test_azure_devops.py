@@ -12,6 +12,8 @@ from devops_utils.core.azure_devops import (
     add_attachment,
     add_link,
     create_work_item,
+    get_work_item,
+    remove_link,
     search_work_items,
     set_tags,
     update_work_item,
@@ -314,3 +316,154 @@ def test_wiql_escapes_single_quotes():
     search_work_items(_client(handler), "Proj", "O'Brien")
     wiql = json.loads(calls[0].content)["query"]
     assert "O''Brien" in wiql
+
+
+# --------------------------------------------------------------------------- #
+# parent at creation / relation reads / unlink
+# --------------------------------------------------------------------------- #
+def test_create_with_parent_adds_hierarchy_relation():
+    reqs: list[httpx.Request] = []
+    create_work_item(_client(_record(reqs)), "Proj", "Task", "T", parent=12)
+    ops = json.loads(reqs[0].content)
+    rel_ops = [op for op in ops if op["path"] == "/relations/-"]
+    assert len(rel_ops) == 1
+    rel = rel_ops[0]["value"]
+    assert rel["rel"] == "System.LinkTypes.Hierarchy-Reverse"
+    assert rel["url"].endswith("/_apis/wit/workItems/12")
+
+
+def test_create_without_parent_has_no_relation_op():
+    reqs: list[httpx.Request] = []
+    create_work_item(_client(_record(reqs)), "Proj", "Task", "T")
+    assert all(op["path"] != "/relations/-" for op in json.loads(reqs[0].content))
+
+
+def test_get_with_relations_expands_and_trims():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "id": 7,
+                "fields": {},
+                "url": "u",
+                "relations": [
+                    {
+                        "rel": "System.LinkTypes.Hierarchy-Reverse",
+                        "url": f"{ORG}/_apis/wit/workItems/3",
+                    },
+                    {
+                        "rel": "System.LinkTypes.Hierarchy-Forward",
+                        "url": f"{ORG}/_apis/wit/workItems/9",
+                    },
+                    {
+                        "rel": "Hyperlink",
+                        "url": "https://x.test",
+                        "attributes": {"comment": "c"},
+                    },
+                    {
+                        "rel": "AttachedFile",
+                        "url": "https://att.test/1",
+                        "attributes": {"name": "log.txt"},
+                    },
+                    {"rel": "ArtifactLink", "url": "vstfs:///Git/Commit/p%2Fr%2Fabc"},
+                    {"rel": "Weird.Custom", "url": "https://y.test"},
+                ],
+            },
+        )
+
+    item = get_work_item(_client(handler), 7, relations=True)
+    assert reqs[0].url.params["$expand"] == "relations"
+    assert [(r["kind"], r["target"]) for r in item["relations"]] == [
+        ("parent", 3),
+        ("child", 9),
+        ("hyperlink", "https://x.test"),
+        ("attachment", "https://att.test/1"),
+        ("commit", "vstfs:///Git/Commit/p%2Fr%2Fabc"),
+        ("Weird.Custom", "https://y.test"),
+    ]
+    assert item["relations"][2]["comment"] == "c"
+    assert item["relations"][3]["name"] == "log.txt"
+
+
+def test_get_without_relations_omits_key_and_expand():
+    reqs: list[httpx.Request] = []
+    item = get_work_item(_client(_record(reqs)), 7)
+    assert "relations" not in item
+    assert "$expand" not in reqs[0].url.params
+
+
+def test_remove_parent_link_by_index_with_test_guard():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 7,
+                    "fields": {},
+                    "relations": [
+                        {"rel": "AttachedFile", "url": "https://att.test/1"},
+                        {
+                            "rel": "System.LinkTypes.Hierarchy-Reverse",
+                            "url": f"{ORG}/_apis/wit/workItems/3",
+                        },
+                    ],
+                },
+            )
+        return httpx.Response(200, json={"id": 7, "fields": {}})
+
+    remove_link(_client(handler), 7, "parent", "3")
+    patch = [c for c in calls if c.method == "PATCH"][0]
+    ops = json.loads(patch.content)
+    assert ops == [
+        {
+            "op": "test",
+            "path": "/relations/1/url",
+            "value": f"{ORG}/_apis/wit/workItems/3",
+        },
+        {"op": "remove", "path": "/relations/1"},
+    ]
+
+
+def test_remove_link_missing_relation_raises():
+    def handler(request):
+        return httpx.Response(200, json={"id": 7, "fields": {}, "relations": []})
+
+    with pytest.raises(ValueError, match="no 'parent' relation"):
+        remove_link(_client(handler), 7, "parent", "3")
+
+
+def test_remove_commit_link_resolves_repo():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        if "git/repositories" in request.url.path:
+            return httpx.Response(
+                200, json={"id": "repo-guid", "project": {"id": "proj-guid"}}
+            )
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 7,
+                    "fields": {},
+                    "relations": [
+                        {
+                            "rel": "ArtifactLink",
+                            "url": "vstfs:///Git/Commit/proj-guid%2Frepo-guid%2Fabc123",
+                        }
+                    ],
+                },
+            )
+        return httpx.Response(200, json={"id": 7, "fields": {}})
+
+    remove_link(_client(handler), 7, "commit", "abc123", project="Proj", repo="R")
+    patch = [c for c in calls if c.method == "PATCH"][0]
+    ops = json.loads(patch.content)
+    assert ops[1] == {"op": "remove", "path": "/relations/0"}
