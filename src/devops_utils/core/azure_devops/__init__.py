@@ -8,6 +8,12 @@ from devops_utils.core.azure_devops.client import (
     AzureDevOpsClient,
     AzureDevOpsError,
 )
+from devops_utils.core.azure_devops.builds import (
+    add_build_tags,
+    get_build,
+    list_builds,
+)
+from devops_utils.core.azure_devops.pullrequests import comment_on_pull_request
 from devops_utils.core.azure_devops.repos import list_repositories, resolve_repo
 from devops_utils.core.azure_devops.workitems import (
     add_attachment,
@@ -27,10 +33,14 @@ __all__ = [
     "AzureDevOpsClient",
     "AzureDevOpsError",
     "add_attachment",
+    "add_build_tags",
     "add_comment",
     "add_link",
+    "comment_on_pull_request",
     "create_work_item",
+    "get_build",
     "get_work_item",
+    "list_builds",
     "list_repositories",
     "list_work_items",
     "query_wiql",

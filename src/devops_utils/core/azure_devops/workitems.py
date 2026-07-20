@@ -25,6 +25,7 @@ LINK_KINDS = (
     "commit",
     "pull_request",
     "branch",
+    "build",
     "work_item",
     "parent",
     "child",
@@ -50,6 +51,7 @@ _ARTIFACT_KINDS = {
     "vstfs:///Git/Commit/": "commit",
     "vstfs:///Git/PullRequestId/": "pull_request",
     "vstfs:///Git/Ref/": "branch",
+    "vstfs:///Build/Build/": "build",
 }
 
 
@@ -243,10 +245,12 @@ def add_link(
 
     Args:
         kind: One of ``commit``, ``pull_request``, ``branch`` (all need
-            ``project`` + ``repo``), ``work_item`` / ``parent`` / ``child`` /
-            ``predecessor`` / ``successor`` (``value`` = target work-item id),
+            ``project`` + ``repo``), ``build`` (``value`` = build id),
+            ``work_item`` / ``parent`` / ``child`` / ``predecessor`` /
+            ``successor`` (``value`` = target work-item id),
             or ``hyperlink`` (``value`` = raw URL).
-        value: Commit SHA / PR id / branch name / work-item id / URL per ``kind``.
+        value: Commit SHA / PR id / branch name / build id / work-item id / URL
+            per ``kind``.
         project: Team project (required for commit/pull_request/branch).
         repo: Repository name or id (required for commit/pull_request/branch).
         comment: Optional note stored on the relation.
@@ -457,6 +461,9 @@ def _build_relation(
     if kind not in LINK_KINDS:
         raise ValueError(f"kind must be one of {LINK_KINDS}, got {kind!r}")
 
+    if kind == "build":
+        # Build artifact URIs carry only the build id; no project/repo needed.
+        return "ArtifactLink", f"vstfs:///Build/Build/{value}", "Build"
     if kind in ("commit", "pull_request", "branch"):
         if not project or not repo:
             raise ValueError(f"kind {kind!r} requires both 'project' and 'repo'")

@@ -200,7 +200,9 @@ def update(
     help="Reference kind.",
 )
 @click.option(
-    "--value", required=True, help="SHA / PR id / branch / work-item id / URL."
+    "--value",
+    required=True,
+    help="SHA / PR id / branch / build id / work-item id / URL.",
 )
 @click.option(
     "--project", default=None, help="Required for commit/pull_request/branch."
@@ -215,7 +217,7 @@ def link(
     repo: str | None,
     comment: str | None,
 ) -> None:
-    """Add a reference (commit, PR, branch, work item, or hyperlink)."""
+    """Add a reference (commit, PR, branch, build, work item, or hyperlink)."""
     _echo(
         tools.azdo_add_work_item_link(
             work_item_id, kind, value, project=project, repo=repo, comment=comment
@@ -232,7 +234,9 @@ def link(
     help="Reference kind.",
 )
 @click.option(
-    "--value", required=True, help="SHA / PR id / branch / work-item id / URL."
+    "--value",
+    required=True,
+    help="SHA / PR id / branch / build id / work-item id / URL.",
 )
 @click.option(
     "--project", default=None, help="Required for commit/pull_request/branch."
@@ -245,10 +249,98 @@ def unlink(
     project: str | None,
     repo: str | None,
 ) -> None:
-    """Remove a reference (commit, PR, branch, work item, or hyperlink)."""
+    """Remove a reference (commit, PR, branch, build, work item, or hyperlink)."""
     _echo(
         tools.azdo_remove_work_item_link(
             work_item_id, kind, value, project=project, repo=repo
+        )
+    )
+
+
+@azdo.command("builds")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option(
+    "--definition",
+    "definitions",
+    multiple=True,
+    type=int,
+    help="Filter by pipeline definition id (repeatable).",
+)
+@click.option("--branch", default=None, help="Filter by source branch (e.g. main).")
+@click.option(
+    "--status",
+    "statuses",
+    multiple=True,
+    help="Filter by status, e.g. inProgress/completed (repeatable).",
+)
+@click.option(
+    "--result",
+    "results",
+    multiple=True,
+    help="Filter by result, e.g. succeeded/failed (repeatable).",
+)
+@click.option("--top", default=25, show_default=True, help="Max builds to return.")
+def builds(
+    project: str,
+    definitions: tuple[int, ...],
+    branch: str | None,
+    statuses: tuple[str, ...],
+    results: tuple[str, ...],
+    top: int,
+) -> None:
+    """List builds (pipeline runs) in a project."""
+    _echo(
+        tools.azdo_list_builds(
+            project,
+            definitions=list(definitions) or None,
+            branch=branch,
+            statuses=list(statuses) or None,
+            results=list(results) or None,
+            top=top,
+        )
+    )
+
+
+@azdo.command("build")
+@click.argument("build_id", type=int)
+@click.option("--project", required=True, help="Team project name or id.")
+def build(build_id: int, project: str) -> None:
+    """Fetch a single build by id."""
+    _echo(tools.azdo_get_build(project, build_id))
+
+
+@azdo.command("build-tag")
+@click.argument("build_id", type=int)
+@click.argument("tags", nargs=-1, required=True)
+@click.option("--project", required=True, help="Team project name or id.")
+def build_tag(build_id: int, tags: tuple[str, ...], project: str) -> None:
+    """Add tags to a build."""
+    _echo(tools.azdo_tag_build(project, build_id, list(tags)))
+
+
+@azdo.command("pr-comment")
+@click.argument("pull_request_id", type=int)
+@click.argument("text")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option("--repo", required=True, help="Repository name or id.")
+@click.option(
+    "--thread",
+    "thread_id",
+    type=int,
+    default=None,
+    help="Existing thread id to reply to; omit to start a new thread.",
+)
+def pr_comment(
+    pull_request_id: int,
+    text: str,
+    project: str,
+    repo: str,
+    thread_id: int | None,
+) -> None:
+    """Comment on a pull request (new thread or reply)."""
+    _echo(
+        tools.azdo_comment_pull_request(
+            project, repo, pull_request_id, text, thread_id=thread_id
         )
     )
 

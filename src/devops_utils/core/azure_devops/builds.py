@@ -1,0 +1,90 @@
+"""Build (pipeline run) queries against the Azure DevOps REST API.
+
+Uses only documented, non-preview Build endpoints so it works on both
+Services (cloud) and Server (on-prem).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from devops_utils.core.azure_devops.client import AzureDevOpsClient
+
+
+def _trim_build(build: dict[str, Any]) -> dict[str, Any]:
+    """Shrink a raw build to the fields agents care about."""
+    definition = build.get("definition") or {}
+    links = build.get("_links") or {}
+    return {
+        "id": build.get("id"),
+        "number": build.get("buildNumber"),
+        "definition": definition.get("name"),
+        "status": build.get("status"),
+        "result": build.get("result"),
+        "branch": build.get("sourceBranch"),
+        "requested_for": (build.get("requestedFor") or {}).get("displayName"),
+        "queue_time": build.get("queueTime"),
+        "finish_time": build.get("finishTime"),
+        "web_url": (links.get("web") or {}).get("href"),
+    }
+
+
+def _branch_ref(branch: str) -> str:
+    """Expand a short branch name to the full ref the Build API filters on."""
+    return branch if branch.startswith("refs/") else f"refs/heads/{branch}"
+
+
+def list_builds(
+    client: AzureDevOpsClient,
+    project: str,
+    *,
+    definitions: list[int] | None = None,
+    branch: str | None = None,
+    statuses: list[str] | None = None,
+    results: list[str] | None = None,
+    top: int = 25,
+) -> list[dict[str, Any]]:
+    """List builds in a project, newest first (API default order).
+
+    Args:
+        definitions: Optional pipeline definition ids to filter on.
+        branch: Optional source branch (short names get ``refs/heads/`` prefixed).
+        statuses: Optional status filter values (``inProgress``, ``completed``,
+            ``notStarted``, ``cancelling``, ``postponed``).
+        results: Optional result filter values (``succeeded``,
+            ``partiallySucceeded``, ``failed``, ``canceled``).
+        top: Maximum number of builds to return.
+    """
+    params: dict[str, Any] = {"$top": top}
+    if definitions:
+        params["definitions"] = ",".join(str(d) for d in definitions)
+    if branch:
+        params["branchName"] = _branch_ref(branch)
+    if statuses:
+        params["statusFilter"] = ",".join(statuses)
+    if results:
+        params["resultFilter"] = ",".join(results)
+
+    data = client.request("GET", f"{project}/_apis/build/builds", params=params)
+    builds = data.get("value", []) if isinstance(data, dict) else []
+    return [_trim_build(build) for build in builds]
+
+
+def get_build(client: AzureDevOpsClient, project: str, build_id: int) -> dict[str, Any]:
+    """Fetch a single build by id (trimmed)."""
+    data = client.request("GET", f"{project}/_apis/build/builds/{build_id}")
+    return _trim_build(data if isinstance(data, dict) else {})
+
+
+def add_build_tags(
+    client: AzureDevOpsClient, project: str, build_id: int, tags: list[str]
+) -> list[str]:
+    """Add tags to a build and return the build's resulting tag list."""
+    if not tags:
+        raise ValueError("tags must not be empty")
+    data = client.request(
+        "POST", f"{project}/_apis/build/builds/{build_id}/tags", json=tags
+    )
+    if isinstance(data, dict):
+        return list(data.get("value", []))
+    return list(data or [])
