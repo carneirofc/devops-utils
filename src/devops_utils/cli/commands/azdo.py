@@ -86,9 +86,14 @@ def search(
 
 @azdo.command("get")
 @click.argument("work_item_id", type=int)
-def get(work_item_id: int) -> None:
+@click.option(
+    "--relations",
+    is_flag=True,
+    help="Include relations (parent/child links, hyperlinks, attachments).",
+)
+def get(work_item_id: int, relations: bool) -> None:
     """Fetch a single work item by id."""
-    _echo(tools.azdo_get_work_item(work_item_id))
+    _echo(tools.azdo_get_work_item(work_item_id, relations=relations))
 
 
 @azdo.command("create")
@@ -102,6 +107,9 @@ def get(work_item_id: int) -> None:
 @click.option("--area-path", default=None, help="Area path.")
 @click.option("--iteration-path", default=None, help="Iteration path.")
 @click.option("--assigned-to", default=None, help="Assignee (email or display name).")
+@click.option(
+    "--parent", type=int, default=None, help="Parent work-item id to create under."
+)
 def create(
     project: str,
     work_item_type: str,
@@ -111,6 +119,7 @@ def create(
     area_path: str | None,
     iteration_path: str | None,
     assigned_to: str | None,
+    parent: int | None,
 ) -> None:
     """Create a work item."""
     _echo(
@@ -123,6 +132,7 @@ def create(
             area_path=area_path,
             iteration_path=iteration_path,
             assigned_to=assigned_to,
+            parent=parent,
         )
     )
 
@@ -209,6 +219,36 @@ def link(
     _echo(
         tools.azdo_add_work_item_link(
             work_item_id, kind, value, project=project, repo=repo, comment=comment
+        )
+    )
+
+
+@azdo.command("unlink")
+@click.argument("work_item_id", type=int)
+@click.option(
+    "--kind",
+    required=True,
+    type=click.Choice(list(LINK_KINDS)),
+    help="Reference kind.",
+)
+@click.option(
+    "--value", required=True, help="SHA / PR id / branch / work-item id / URL."
+)
+@click.option(
+    "--project", default=None, help="Required for commit/pull_request/branch."
+)
+@click.option("--repo", default=None, help="Required for commit/pull_request/branch.")
+def unlink(
+    work_item_id: int,
+    kind: str,
+    value: str,
+    project: str | None,
+    repo: str | None,
+) -> None:
+    """Remove a reference (commit, PR, branch, work item, or hyperlink)."""
+    _echo(
+        tools.azdo_remove_work_item_link(
+            work_item_id, kind, value, project=project, repo=repo
         )
     )
 

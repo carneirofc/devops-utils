@@ -108,18 +108,21 @@ def azdo_search_work_items(
     )
 
 
-def azdo_get_work_item(work_item_id: int) -> dict[str, Any]:
+def azdo_get_work_item(work_item_id: int, relations: bool = False) -> dict[str, Any]:
     """Fetch a single work item by id.
 
     Args:
         work_item_id: The work-item id.
+        relations: When true, include the item's relations (parent/child links,
+            related work items, hyperlinks, attachments, commit/PR/branch links)
+            as a ``relations`` list of ``{kind, target, ...}`` dicts.
 
     Returns:
         A trimmed work-item dict.
     """
     from devops_utils.core.azure_devops import get_work_item
 
-    return get_work_item(_azdo_client(), work_item_id)
+    return get_work_item(_azdo_client(), work_item_id, relations=relations)
 
 
 def azdo_create_work_item(
@@ -131,6 +134,7 @@ def azdo_create_work_item(
     area_path: str | None = None,
     iteration_path: str | None = None,
     assigned_to: str | None = None,
+    parent: int | None = None,
 ) -> dict[str, Any]:
     """Create a work item.
 
@@ -142,6 +146,8 @@ def azdo_create_work_item(
         tags: Optional list of tags.
         area_path / iteration_path: Optional classification nodes.
         assigned_to: Optional assignee (email or display name).
+        parent: Optional parent work-item id; creates the item directly under
+            it in the hierarchy (e.g. a Task under a User Story).
 
     Returns:
         The created work item (trimmed).
@@ -158,6 +164,7 @@ def azdo_create_work_item(
         area_path=area_path,
         iteration_path=iteration_path,
         assigned_to=assigned_to,
+        parent=parent,
     )
 
 
@@ -260,6 +267,35 @@ def azdo_add_work_item_link(
         project=project,
         repo=repo,
         comment=comment,
+    )
+
+
+def azdo_remove_work_item_link(
+    work_item_id: int,
+    kind: str,
+    value: str,
+    project: str | None = None,
+    repo: str | None = None,
+) -> dict[str, Any]:
+    """Remove a reference from a work item (e.g. detach its parent before re-parenting).
+
+    Args:
+        work_item_id: The work-item id to remove the reference from.
+        kind: Same kinds as ``azdo_add_work_item_link``: ``commit``,
+            ``pull_request``, ``branch`` (need ``project`` + ``repo``),
+            ``work_item``/``parent``/``child``/``predecessor``/``successor``
+            (``value`` = target work-item id), ``hyperlink`` (``value`` = URL).
+        value: Commit SHA / PR id / branch name / work-item id / URL per ``kind``.
+        project: Team project (required for commit/pull_request/branch).
+        repo: Repository name or id (required for commit/pull_request/branch).
+
+    Returns:
+        The updated work item (trimmed).
+    """
+    from devops_utils.core.azure_devops import remove_link
+
+    return remove_link(
+        _azdo_client(), work_item_id, kind, value, project=project, repo=repo
     )
 
 
