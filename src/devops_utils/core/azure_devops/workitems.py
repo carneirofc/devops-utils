@@ -21,7 +21,26 @@ from devops_utils.core.azure_devops.repos import resolve_repo
 JSON_PATCH = "application/json-patch+json"
 
 # Reference kinds accepted by :func:`add_link`.
-LINK_KINDS = ("commit", "pull_request", "branch", "work_item", "hyperlink")
+LINK_KINDS = (
+    "commit",
+    "pull_request",
+    "branch",
+    "work_item",
+    "parent",
+    "child",
+    "predecessor",
+    "successor",
+    "hyperlink",
+)
+
+# Work-item-to-work-item relation names, keyed by link kind.
+WORK_ITEM_RELATIONS = {
+    "work_item": "System.LinkTypes.Related",
+    "parent": "System.LinkTypes.Hierarchy-Reverse",
+    "child": "System.LinkTypes.Hierarchy-Forward",
+    "predecessor": "System.LinkTypes.Dependency-Reverse",
+    "successor": "System.LinkTypes.Dependency-Forward",
+}
 
 
 def _trim(item: dict[str, Any]) -> dict[str, Any]:
@@ -137,6 +156,51 @@ def set_tags(
     return _trim(data)
 
 
+def update_work_item(
+    client: AzureDevOpsClient,
+    work_item_id: int,
+    *,
+    state: str | None = None,
+    assigned_to: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """Update mutable fields of an existing work item.
+
+    Args:
+        state: New ``System.State`` (process-template-specific, e.g. ``Closed``,
+            ``Done``, ``Resolved``).
+        assigned_to: New assignee identity (email or display name).
+        title: New ``System.Title``.
+        description: New ``System.Description`` (HTML).
+
+    Raises:
+        ValueError: If no field to update was given.
+    """
+    ops: list[dict[str, Any]] = []
+    if state is not None:
+        ops.append(_add("/fields/System.State", state))
+    if assigned_to is not None:
+        ops.append(_add("/fields/System.AssignedTo", assigned_to))
+    if title is not None:
+        ops.append(_add("/fields/System.Title", title))
+    if description is not None:
+        ops.append(_add("/fields/System.Description", description))
+    if not ops:
+        raise ValueError(
+            "nothing to update: give at least one of "
+            "state/assigned_to/title/description"
+        )
+
+    data = client.request(
+        "PATCH",
+        f"_apis/wit/workitems/{work_item_id}",
+        json=ops,
+        content_type=JSON_PATCH,
+    )
+    return _trim(data)
+
+
 def add_link(
     client: AzureDevOpsClient,
     work_item_id: int,
@@ -151,8 +215,9 @@ def add_link(
 
     Args:
         kind: One of ``commit``, ``pull_request``, ``branch`` (all need
-            ``project`` + ``repo``), ``work_item`` (``value`` = target id), or
-            ``hyperlink`` (``value`` = raw URL).
+            ``project`` + ``repo``), ``work_item`` / ``parent`` / ``child`` /
+            ``predecessor`` / ``successor`` (``value`` = target work-item id),
+            or ``hyperlink`` (``value`` = raw URL).
         value: Commit SHA / PR id / branch name / work-item id / URL per ``kind``.
         project: Team project (required for commit/pull_request/branch).
         repo: Repository name or id (required for commit/pull_request/branch).
@@ -184,8 +249,8 @@ def add_link(
                 f"vstfs:///Git/Ref/{artifact}GB{value}",
                 "Branch",
             )
-    elif kind == "work_item":
-        rel = "System.LinkTypes.Related"
+    elif kind in WORK_ITEM_RELATIONS:
+        rel = WORK_ITEM_RELATIONS[kind]
         url = client._url(f"_apis/wit/workItems/{value}")
         name = None
     else:  # hyperlink

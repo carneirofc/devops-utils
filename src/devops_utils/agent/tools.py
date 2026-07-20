@@ -194,6 +194,38 @@ def azdo_set_work_item_tags(
     return set_tags(_azdo_client(), work_item_id, tags, mode)
 
 
+def azdo_update_work_item(
+    work_item_id: int,
+    state: str | None = None,
+    assigned_to: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """Update mutable fields of an existing work item.
+
+    Args:
+        work_item_id: The work-item id.
+        state: New state (process-template-specific, e.g. ``Closed``, ``Done``,
+            ``Resolved``, ``Active``).
+        assigned_to: New assignee (email or display name).
+        title: New title.
+        description: New description (HTML).
+
+    Returns:
+        The updated work item (trimmed).
+    """
+    from devops_utils.core.azure_devops import update_work_item
+
+    return update_work_item(
+        _azdo_client(),
+        work_item_id,
+        state=state,
+        assigned_to=assigned_to,
+        title=title,
+        description=description,
+    )
+
+
 def azdo_add_work_item_link(
     work_item_id: int,
     kind: str,
@@ -207,7 +239,8 @@ def azdo_add_work_item_link(
     Args:
         work_item_id: The work-item id to attach the reference to.
         kind: One of ``commit``, ``pull_request``, ``branch`` (need ``project`` +
-            ``repo``), ``work_item`` (``value`` = target id), ``hyperlink``
+            ``repo``), ``work_item``/``parent``/``child``/``predecessor``/
+            ``successor`` (``value`` = target work-item id), ``hyperlink``
             (``value`` = raw URL).
         value: Commit SHA / PR id / branch name / work-item id / URL per ``kind``.
         project: Team project (required for commit/pull_request/branch).

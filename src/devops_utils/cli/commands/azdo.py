@@ -11,6 +11,7 @@ from typing import Any
 import click
 
 from devops_utils.agent import tools
+from devops_utils.core.azure_devops.workitems import LINK_KINDS
 
 
 def _echo(result: Any) -> None:
@@ -149,12 +150,43 @@ def tag(work_item_id: int, tags: tuple[str, ...], mode: str) -> None:
     _echo(tools.azdo_set_work_item_tags(work_item_id, list(tags), mode))
 
 
+@azdo.command("update")
+@click.argument("work_item_id", type=int)
+@click.option("--state", default=None, help="New state, e.g. Active/Resolved/Closed.")
+@click.option(
+    "--assigned-to", default=None, help="New assignee (email or display name)."
+)
+@click.option("--title", default=None, help="New title.")
+@click.option("--description", default=None, help="New HTML description.")
+def update(
+    work_item_id: int,
+    state: str | None,
+    assigned_to: str | None,
+    title: str | None,
+    description: str | None,
+) -> None:
+    """Update a work item's state, assignee, title, or description."""
+    if state is None and assigned_to is None and title is None and description is None:
+        raise click.UsageError(
+            "give at least one of --state/--assigned-to/--title/--description"
+        )
+    _echo(
+        tools.azdo_update_work_item(
+            work_item_id,
+            state=state,
+            assigned_to=assigned_to,
+            title=title,
+            description=description,
+        )
+    )
+
+
 @azdo.command("link")
 @click.argument("work_item_id", type=int)
 @click.option(
     "--kind",
     required=True,
-    type=click.Choice(["commit", "pull_request", "branch", "work_item", "hyperlink"]),
+    type=click.Choice(list(LINK_KINDS)),
     help="Reference kind.",
 )
 @click.option(

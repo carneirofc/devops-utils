@@ -19,6 +19,7 @@ from devops_utils.core.azure_devops.workitems import (
     query_wiql,
     search_work_items,
     set_tags,
+    update_work_item,
 )
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     "resolve_repo",
     "search_work_items",
     "set_tags",
+    "update_work_item",
 ]

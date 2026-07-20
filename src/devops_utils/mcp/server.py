@@ -47,6 +47,7 @@ def _build_server():
         agent_tools.azdo_create_work_item,
         agent_tools.azdo_comment_work_item,
         agent_tools.azdo_set_work_item_tags,
+        agent_tools.azdo_update_work_item,
         agent_tools.azdo_add_work_item_link,
         agent_tools.azdo_add_work_item_attachment,
     ):
