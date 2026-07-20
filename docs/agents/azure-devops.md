@@ -17,9 +17,9 @@ Windows credential store). Everything comes from environment variables:
 
 ## Surfaces
 
-The same nine operations are exposed three ways, all reading the env vars above:
+The same ten operations are exposed three ways, all reading the env vars above:
 
-- **CLI**: `devops-utils azdo {repos,list,search,get,create,comment,tag,link,attach}`
+- **CLI**: `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,attach}`
 - **MCP tools**: `azdo_*` (run `devops-utils-mcp`)
 - **Agent callables**: `devops_utils.agent.tools.azdo_*`
 
@@ -36,7 +36,15 @@ One entry point covers every reference kind:
 | `pull_request` | project + repo | PR id | `ArtifactLink` `vstfs:///Git/PullRequestId/...` |
 | `branch` | project + repo | branch name | `ArtifactLink` `vstfs:///Git/Ref/...GB{branch}` |
 | `work_item` | — | target work-item id | `System.LinkTypes.Related` |
+| `parent` | — | target work-item id | `System.LinkTypes.Hierarchy-Reverse` |
+| `child` | — | target work-item id | `System.LinkTypes.Hierarchy-Forward` |
+| `predecessor` | — | target work-item id | `System.LinkTypes.Dependency-Reverse` |
+| `successor` | — | target work-item id | `System.LinkTypes.Dependency-Forward` |
 | `hyperlink` | — | raw URL | `Hyperlink` |
+
+`update` (`azdo update` / `azdo_update_work_item`) changes `System.State`,
+`System.AssignedTo`, `System.Title`, and/or `System.Description` on an existing
+item — state names are process-template-specific (`Closed`/`Done`/`Resolved`).
 
 Comments use the `System.History` field and search uses WIQL `CONTAINS`, both for
 maximum on-prem compatibility (no preview-only endpoints or separate Search host).

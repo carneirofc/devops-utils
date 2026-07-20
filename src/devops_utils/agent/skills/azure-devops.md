@@ -8,8 +8,9 @@ description: Create, query, annotate, and link Azure DevOps work items (cloud + 
 Use this skill to drive Azure DevOps work items and repositories against either
 **Services (cloud, `https://dev.azure.com/{org}`)** or **Server (on-prem TFS
 collection)**. Reach for it when the task is: create a Bug/Task/Story, list or
-search work items, comment, tag, assign someone, or attach a commit / PR /
-branch / file / URL to a work item. Requires the `azure` extra (`httpx`).
+search work items, comment, tag, assign someone, change state (close/resolve),
+or attach a commit / PR / branch / file / URL to a work item. Requires the
+`azure` extra (`httpx`).
 
 ## Configuration (no machine credentials)
 
@@ -27,9 +28,9 @@ secret never flows through tool arguments or logs (see
 
 ## Surfaces
 
-The same nine operations are exposed three ways, all reading the env vars above:
+The same ten operations are exposed three ways, all reading the env vars above:
 
-- **CLI:** `devops-utils azdo {repos,list,search,get,create,comment,tag,link,attach}`
+- **CLI:** `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,attach}`
 - **MCP tools:** `azdo_*` — served by `devops-utils-mcp` (requires the `mcp` extra).
 - **Python / agent callables:** `from devops_utils.agent.tools import azdo_*`.
 
@@ -45,6 +46,7 @@ Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
 | `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types`, `top` |
 | `azdo_get_work_item` | `azdo get` | `work_item_id: int` |
 | `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to` |
+| `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description` |
 | `azdo_comment_work_item` | `azdo comment` | `work_item_id: int`, `text: str` |
 | `azdo_set_work_item_tags` | `azdo tag` | `work_item_id`, `tags: list[str]`, `mode: "add" \| "replace"` |
 | `azdo_add_work_item_link` | `azdo link` | `work_item_id`, `kind`, `value`, `project`, `repo`, `comment` |
@@ -134,6 +136,26 @@ template. Common values: `Bug`, `Task`, `User Story`, `Feature`, `Epic`,
 error, list an existing item with `azdo_list_work_items` to see the `type`
 values the project actually uses.
 
+### Update a work item (state / assignee / title / description)
+
+```python
+azdo_update_work_item(
+    work_item_id: int,
+    state: str | None = None,          # e.g. "Active", "Resolved", "Closed"
+    assigned_to: str | None = None,    # email or display name
+    title: str | None = None,
+    description: str | None = None,    # HTML
+) -> dict
+```
+
+Pass only the fields to change; giving none raises `ValueError`. Use it to
+**close/resolve** (`state="Closed"` — valid state names are
+process-template-specific: Agile uses `Closed`, Scrum `Done`, some templates
+`Resolved`; check an existing item's `state` if a transition is rejected) and to
+**reassign** an existing item.
+
+CLI: `devops-utils azdo update WORK_ITEM_ID [--state S] [--assigned-to WHO] [--title T] [--description H]`
+
 ### Comment on a work item
 
 ```python
@@ -173,12 +195,10 @@ Set the assignee via the `assigned_to` parameter — it accepts an **email** or 
 **display name** and maps to `System.AssignedTo`:
 
 - On create: `azdo_create_work_item(..., assigned_to="dev@contoso.com")`.
-- CLI: `--assigned-to dev@contoso.com`.
+- On an existing item: `azdo_update_work_item(id, assigned_to="dev@contoso.com")`.
+- CLI: `--assigned-to dev@contoso.com` (on `create` and `update`).
 
-There is currently **no standalone reassign op**; assignment is set at create
-time (and `assigned_to` is also a *filter* on `list`/`search`, not a mutation
-there). To change an existing item's assignee you would need a new op — out of
-scope for this skill.
+On `list`/`search`, `assigned_to` is a *filter*, not a mutation.
 
 ### Links / references
 
@@ -201,7 +221,16 @@ One entry point covers every reference kind (`LINK_KINDS` in `workitems.py`):
 | `pull_request` | `project` + `repo` | PR id | `ArtifactLink` `vstfs:///Git/PullRequestId/...` |
 | `branch` | `project` + `repo` | branch name | `ArtifactLink` `vstfs:///Git/Ref/...GB{branch}` |
 | `work_item` | — | target work-item id | `System.LinkTypes.Related` |
+| `parent` | — | target work-item id | `System.LinkTypes.Hierarchy-Reverse` |
+| `child` | — | target work-item id | `System.LinkTypes.Hierarchy-Forward` |
+| `predecessor` | — | target work-item id | `System.LinkTypes.Dependency-Reverse` |
+| `successor` | — | target work-item id | `System.LinkTypes.Dependency-Forward` |
 | `hyperlink` | — | raw URL | `Hyperlink` |
+
+Hierarchy and dependency kinds are read from the item being linked:
+`parent` makes `value` the parent of `work_item_id`; `predecessor` marks
+`work_item_id` as **blocked by** `value` (use these for wayfinder-style
+dependency maps).
 
 An unknown `kind`, or a repo kind missing `project`/`repo`, raises `ValueError`.
 

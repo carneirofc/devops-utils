@@ -75,6 +75,7 @@ devops-utils azdo repos --project MyProject
 devops-utils azdo list --project MyProject --state Active --type Bug
 devops-utils azdo search --project MyProject "login timeout"
 devops-utils azdo create --project MyProject --type Task --title "Fix flaky test"
+devops-utils azdo update 42 --state Closed --assigned-to dev@example.com
 devops-utils azdo comment 42 "Investigating."
 devops-utils azdo tag 42 backend urgent
 devops-utils azdo link 42 --kind commit --project MyProject --repo MyRepo --value <sha>
@@ -107,6 +108,26 @@ devops-utils setup env
 
 Use `--force` to overwrite existing files; `setup mcp` merges into any existing
 config without clobbering other servers.
+
+
+Use with mattpocock/skills
+--------------------------
+
+Skills like [mattpocock/skills](https://github.com/mattpocock/skills) (triage,
+wayfinder, to-tickets, …) read a repo-local config file,
+`docs/agents/issue-tracker.md`, to learn how to talk to the issue tracker —
+GitHub's `gh` CLI by default. To point them at **Azure DevOps work items**
+via devops-utils instead, run in the target repo:
+
+```bash
+devops-utils setup tracker --project-name MyProject --done-state Closed
+```
+
+This writes `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md`
+mapping every tracker operation (create, comment, labels→tags, close, claim,
+blocking links, PR references) to `devops-utils azdo` / the `azdo_*` MCP tools.
+`--done-state` is the state meaning "closed" in your process template
+(`Closed`, `Done`, `Resolved`, …).
 
 
 Author

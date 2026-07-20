@@ -7,6 +7,11 @@ directory, registers the `devops-utils-mcp` server, and writes an Azure DevOps
 env scaffold. `setup all` does all three; `--project` scopes to the current repo
 instead of `~/.claude`. See `src/devops_utils/cli/commands/setup.py`.
 
+`devops-utils setup tracker --project-name X` writes an Azure DevOps
+`docs/agents/issue-tracker.md` + `triage-labels.md` into a target repo so
+mattpocock-style skills drive Azure DevOps work items through `devops-utils azdo`
+instead of the default `gh` CLI. Templates: `src/devops_utils/agent/trackers/`.
+
 ## Agent skills
 
 ### Azure DevOps work items
