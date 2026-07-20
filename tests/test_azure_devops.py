@@ -14,6 +14,7 @@ from devops_utils.core.azure_devops import (
     create_work_item,
     search_work_items,
     set_tags,
+    update_work_item,
 )
 
 ORG = "https://dev.azure.com/contoso"
@@ -120,6 +121,44 @@ def test_set_tags_add_merges_existing():
 
 
 # --------------------------------------------------------------------------- #
+# update
+# --------------------------------------------------------------------------- #
+def test_update_sends_json_patch():
+    reqs: list[httpx.Request] = []
+    update_work_item(
+        _client(_record(reqs)),
+        42,
+        state="Closed",
+        assigned_to="dev@contoso.com",
+        title="New title",
+        description="<p>d</p>",
+    )
+    req = reqs[0]
+    assert req.method == "PATCH"
+    assert req.url.path.endswith("/_apis/wit/workitems/42")
+    assert req.headers["Content-Type"] == "application/json-patch+json"
+    paths = {op["path"]: op["value"] for op in json.loads(req.content)}
+    assert paths == {
+        "/fields/System.State": "Closed",
+        "/fields/System.AssignedTo": "dev@contoso.com",
+        "/fields/System.Title": "New title",
+        "/fields/System.Description": "<p>d</p>",
+    }
+
+
+def test_update_single_field_only_patches_that_field():
+    reqs: list[httpx.Request] = []
+    update_work_item(_client(_record(reqs)), 42, state="Resolved")
+    ops = json.loads(reqs[0].content)
+    assert ops == [{"op": "add", "path": "/fields/System.State", "value": "Resolved"}]
+
+
+def test_update_requires_at_least_one_field():
+    with pytest.raises(ValueError, match="nothing to update"):
+        update_work_item(_client(_record([])), 42)
+
+
+# --------------------------------------------------------------------------- #
 # links (references)
 # --------------------------------------------------------------------------- #
 def _repo_handler(store):
@@ -175,6 +214,23 @@ def test_work_item_link_uses_related():
     add_link(_client(_record(reqs)), 7, "work_item", "99")
     rel = json.loads(reqs[0].content)[0]["value"]
     assert rel["rel"] == "System.LinkTypes.Related"
+    assert rel["url"].endswith("/_apis/wit/workItems/99")
+
+
+@pytest.mark.parametrize(
+    ("kind", "relation"),
+    [
+        ("parent", "System.LinkTypes.Hierarchy-Reverse"),
+        ("child", "System.LinkTypes.Hierarchy-Forward"),
+        ("predecessor", "System.LinkTypes.Dependency-Reverse"),
+        ("successor", "System.LinkTypes.Dependency-Forward"),
+    ],
+)
+def test_hierarchy_and_dependency_link_relations(kind, relation):
+    reqs: list[httpx.Request] = []
+    add_link(_client(_record(reqs)), 7, kind, "99")
+    rel = json.loads(reqs[0].content)[0]["value"]
+    assert rel["rel"] == relation
     assert rel["url"].endswith("/_apis/wit/workItems/99")
 
 
