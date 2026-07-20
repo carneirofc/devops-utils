@@ -93,6 +93,54 @@ def test_setup_force_overwrites(tmp_path):
     assert target.read_text(encoding="utf-8") != "SENTINEL"
 
 
+def test_install_tracker_renders_placeholders(tmp_path):
+    written, skipped = install.install_tracker(tmp_path, "Contoso", done_state="Done")
+    assert skipped == []
+    tracker = tmp_path / "docs" / "agents" / "issue-tracker.md"
+    labels = tmp_path / "docs" / "agents" / "triage-labels.md"
+    assert {tracker, labels} == set(written)
+    text = tracker.read_text(encoding="utf-8")
+    assert "--project Contoso" in text
+    assert '--state "Done"' in text
+    assert "{project}" not in text
+    assert "{done_state}" not in text
+    assert "ready-for-agent" in labels.read_text(encoding="utf-8")
+
+
+def test_install_tracker_skips_existing_without_force(tmp_path):
+    target = tmp_path / "docs" / "agents" / "issue-tracker.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("SENTINEL", encoding="utf-8")
+    written, skipped = install.install_tracker(tmp_path, "Contoso")
+    assert target in skipped
+    assert target.read_text(encoding="utf-8") == "SENTINEL"
+    written, skipped = install.install_tracker(tmp_path, "Contoso", force=True)
+    assert target in written
+    assert "SENTINEL" not in target.read_text(encoding="utf-8")
+
+
+def test_setup_tracker_cli(tmp_path):
+    result = CliRunner().invoke(
+        cli,
+        [
+            "setup",
+            "tracker",
+            "--project-name",
+            "Contoso",
+            "--done-state",
+            "Resolved",
+            "--dest",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    text = (tmp_path / "docs" / "agents" / "issue-tracker.md").read_text(
+        encoding="utf-8"
+    )
+    assert "azdo create --project Contoso" in text
+    assert 'update <id> --state "Resolved"' in text
+
+
 def test_setup_all_writes_everything(tmp_path):
     result = CliRunner().invoke(cli, ["setup", "all", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output

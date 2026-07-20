@@ -2,6 +2,9 @@
 
 Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+(For repos tracked in Azure DevOps instead, generate the equivalent config with
+`devops-utils setup tracker` — see `src/devops_utils/agent/trackers/`.)
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

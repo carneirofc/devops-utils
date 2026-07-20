@@ -11,6 +11,7 @@ from typing import Any
 import click
 
 from devops_utils.agent import tools
+from devops_utils.core.azure_devops.workitems import LINK_KINDS
 
 
 def _echo(result: Any) -> None:
@@ -85,9 +86,14 @@ def search(
 
 @azdo.command("get")
 @click.argument("work_item_id", type=int)
-def get(work_item_id: int) -> None:
+@click.option(
+    "--relations",
+    is_flag=True,
+    help="Include relations (parent/child links, hyperlinks, attachments).",
+)
+def get(work_item_id: int, relations: bool) -> None:
     """Fetch a single work item by id."""
-    _echo(tools.azdo_get_work_item(work_item_id))
+    _echo(tools.azdo_get_work_item(work_item_id, relations=relations))
 
 
 @azdo.command("create")
@@ -101,6 +107,9 @@ def get(work_item_id: int) -> None:
 @click.option("--area-path", default=None, help="Area path.")
 @click.option("--iteration-path", default=None, help="Iteration path.")
 @click.option("--assigned-to", default=None, help="Assignee (email or display name).")
+@click.option(
+    "--parent", type=int, default=None, help="Parent work-item id to create under."
+)
 def create(
     project: str,
     work_item_type: str,
@@ -110,6 +119,7 @@ def create(
     area_path: str | None,
     iteration_path: str | None,
     assigned_to: str | None,
+    parent: int | None,
 ) -> None:
     """Create a work item."""
     _echo(
@@ -122,6 +132,7 @@ def create(
             area_path=area_path,
             iteration_path=iteration_path,
             assigned_to=assigned_to,
+            parent=parent,
         )
     )
 
@@ -149,16 +160,49 @@ def tag(work_item_id: int, tags: tuple[str, ...], mode: str) -> None:
     _echo(tools.azdo_set_work_item_tags(work_item_id, list(tags), mode))
 
 
+@azdo.command("update")
+@click.argument("work_item_id", type=int)
+@click.option("--state", default=None, help="New state, e.g. Active/Resolved/Closed.")
+@click.option(
+    "--assigned-to", default=None, help="New assignee (email or display name)."
+)
+@click.option("--title", default=None, help="New title.")
+@click.option("--description", default=None, help="New HTML description.")
+def update(
+    work_item_id: int,
+    state: str | None,
+    assigned_to: str | None,
+    title: str | None,
+    description: str | None,
+) -> None:
+    """Update a work item's state, assignee, title, or description."""
+    if state is None and assigned_to is None and title is None and description is None:
+        raise click.UsageError(
+            "give at least one of --state/--assigned-to/--title/--description"
+        )
+    _echo(
+        tools.azdo_update_work_item(
+            work_item_id,
+            state=state,
+            assigned_to=assigned_to,
+            title=title,
+            description=description,
+        )
+    )
+
+
 @azdo.command("link")
 @click.argument("work_item_id", type=int)
 @click.option(
     "--kind",
     required=True,
-    type=click.Choice(["commit", "pull_request", "branch", "work_item", "hyperlink"]),
+    type=click.Choice(list(LINK_KINDS)),
     help="Reference kind.",
 )
 @click.option(
-    "--value", required=True, help="SHA / PR id / branch / work-item id / URL."
+    "--value",
+    required=True,
+    help="SHA / PR id / branch / build id / work-item id / URL.",
 )
 @click.option(
     "--project", default=None, help="Required for commit/pull_request/branch."
@@ -173,10 +217,130 @@ def link(
     repo: str | None,
     comment: str | None,
 ) -> None:
-    """Add a reference (commit, PR, branch, work item, or hyperlink)."""
+    """Add a reference (commit, PR, branch, build, work item, or hyperlink)."""
     _echo(
         tools.azdo_add_work_item_link(
             work_item_id, kind, value, project=project, repo=repo, comment=comment
+        )
+    )
+
+
+@azdo.command("unlink")
+@click.argument("work_item_id", type=int)
+@click.option(
+    "--kind",
+    required=True,
+    type=click.Choice(list(LINK_KINDS)),
+    help="Reference kind.",
+)
+@click.option(
+    "--value",
+    required=True,
+    help="SHA / PR id / branch / build id / work-item id / URL.",
+)
+@click.option(
+    "--project", default=None, help="Required for commit/pull_request/branch."
+)
+@click.option("--repo", default=None, help="Required for commit/pull_request/branch.")
+def unlink(
+    work_item_id: int,
+    kind: str,
+    value: str,
+    project: str | None,
+    repo: str | None,
+) -> None:
+    """Remove a reference (commit, PR, branch, build, work item, or hyperlink)."""
+    _echo(
+        tools.azdo_remove_work_item_link(
+            work_item_id, kind, value, project=project, repo=repo
+        )
+    )
+
+
+@azdo.command("builds")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option(
+    "--definition",
+    "definitions",
+    multiple=True,
+    type=int,
+    help="Filter by pipeline definition id (repeatable).",
+)
+@click.option("--branch", default=None, help="Filter by source branch (e.g. main).")
+@click.option(
+    "--status",
+    "statuses",
+    multiple=True,
+    help="Filter by status, e.g. inProgress/completed (repeatable).",
+)
+@click.option(
+    "--result",
+    "results",
+    multiple=True,
+    help="Filter by result, e.g. succeeded/failed (repeatable).",
+)
+@click.option("--top", default=25, show_default=True, help="Max builds to return.")
+def builds(
+    project: str,
+    definitions: tuple[int, ...],
+    branch: str | None,
+    statuses: tuple[str, ...],
+    results: tuple[str, ...],
+    top: int,
+) -> None:
+    """List builds (pipeline runs) in a project."""
+    _echo(
+        tools.azdo_list_builds(
+            project,
+            definitions=list(definitions) or None,
+            branch=branch,
+            statuses=list(statuses) or None,
+            results=list(results) or None,
+            top=top,
+        )
+    )
+
+
+@azdo.command("build")
+@click.argument("build_id", type=int)
+@click.option("--project", required=True, help="Team project name or id.")
+def build(build_id: int, project: str) -> None:
+    """Fetch a single build by id."""
+    _echo(tools.azdo_get_build(project, build_id))
+
+
+@azdo.command("build-tag")
+@click.argument("build_id", type=int)
+@click.argument("tags", nargs=-1, required=True)
+@click.option("--project", required=True, help="Team project name or id.")
+def build_tag(build_id: int, tags: tuple[str, ...], project: str) -> None:
+    """Add tags to a build."""
+    _echo(tools.azdo_tag_build(project, build_id, list(tags)))
+
+
+@azdo.command("pr-comment")
+@click.argument("pull_request_id", type=int)
+@click.argument("text")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option("--repo", required=True, help="Repository name or id.")
+@click.option(
+    "--thread",
+    "thread_id",
+    type=int,
+    default=None,
+    help="Existing thread id to reply to; omit to start a new thread.",
+)
+def pr_comment(
+    pull_request_id: int,
+    text: str,
+    project: str,
+    repo: str,
+    thread_id: int | None,
+) -> None:
+    """Comment on a pull request (new thread or reply)."""
+    _echo(
+        tools.azdo_comment_pull_request(
+            project, repo, pull_request_id, text, thread_id=thread_id
         )
     )
 

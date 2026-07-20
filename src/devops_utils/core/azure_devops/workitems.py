@@ -21,7 +21,38 @@ from devops_utils.core.azure_devops.repos import resolve_repo
 JSON_PATCH = "application/json-patch+json"
 
 # Reference kinds accepted by :func:`add_link`.
-LINK_KINDS = ("commit", "pull_request", "branch", "work_item", "hyperlink")
+LINK_KINDS = (
+    "commit",
+    "pull_request",
+    "branch",
+    "build",
+    "work_item",
+    "parent",
+    "child",
+    "predecessor",
+    "successor",
+    "hyperlink",
+)
+
+# Work-item-to-work-item relation names, keyed by link kind.
+WORK_ITEM_RELATIONS = {
+    "work_item": "System.LinkTypes.Related",
+    "parent": "System.LinkTypes.Hierarchy-Reverse",
+    "child": "System.LinkTypes.Hierarchy-Forward",
+    "predecessor": "System.LinkTypes.Dependency-Reverse",
+    "successor": "System.LinkTypes.Dependency-Forward",
+}
+
+# Inverse of WORK_ITEM_RELATIONS, for turning raw relations back into kinds.
+_RELATION_KINDS = {rel: kind for kind, rel in WORK_ITEM_RELATIONS.items()}
+
+# vstfs URL prefixes identifying the artifact behind an ArtifactLink.
+_ARTIFACT_KINDS = {
+    "vstfs:///Git/Commit/": "commit",
+    "vstfs:///Git/PullRequestId/": "pull_request",
+    "vstfs:///Git/Ref/": "branch",
+    "vstfs:///Build/Build/": "build",
+}
 
 
 def _trim(item: dict[str, Any]) -> dict[str, Any]:
@@ -51,6 +82,7 @@ def create_work_item(
     area_path: str | None = None,
     iteration_path: str | None = None,
     assigned_to: str | None = None,
+    parent: int | None = None,
 ) -> dict[str, Any]:
     """Create a work item and return the trimmed result.
 
@@ -62,6 +94,7 @@ def create_work_item(
         tags: Optional list of tags.
         area_path / iteration_path: Optional classification nodes.
         assigned_to: Optional identity (email or display name).
+        parent: Optional parent work-item id; links the new item under it.
     """
     ops: list[dict[str, Any]] = [_add("/fields/System.Title", title)]
     if description:
@@ -74,6 +107,9 @@ def create_work_item(
         ops.append(_add("/fields/System.IterationPath", iteration_path))
     if assigned_to:
         ops.append(_add("/fields/System.AssignedTo", assigned_to))
+    if parent is not None:
+        rel, url, _ = _build_relation(client, "parent", str(parent), None, None)
+        ops.append(_add("/relations/-", {"rel": rel, "url": url}))
 
     data = client.request(
         "POST",
@@ -84,10 +120,23 @@ def create_work_item(
     return _trim(data)
 
 
-def get_work_item(client: AzureDevOpsClient, work_item_id: int) -> dict[str, Any]:
-    """Fetch a single work item (trimmed)."""
-    data = client.request("GET", f"_apis/wit/workitems/{work_item_id}")
-    return _trim(data)
+def get_work_item(
+    client: AzureDevOpsClient, work_item_id: int, *, relations: bool = False
+) -> dict[str, Any]:
+    """Fetch a single work item (trimmed).
+
+    Args:
+        relations: When true, include the item's relations (parent/child links,
+            related work items, hyperlinks, attachments, artifact links) as a
+            ``relations`` list of ``{kind, target, ...}`` dicts.
+    """
+    params = {"$expand": "relations"} if relations else None
+    data = client.request("GET", f"_apis/wit/workitems/{work_item_id}", params=params)
+    trimmed = _trim(data)
+    if relations:
+        raw = data.get("relations") or [] if isinstance(data, dict) else []
+        trimmed["relations"] = [_trim_relation(rel) for rel in raw]
+    return trimmed
 
 
 def add_comment(
@@ -137,6 +186,51 @@ def set_tags(
     return _trim(data)
 
 
+def update_work_item(
+    client: AzureDevOpsClient,
+    work_item_id: int,
+    *,
+    state: str | None = None,
+    assigned_to: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """Update mutable fields of an existing work item.
+
+    Args:
+        state: New ``System.State`` (process-template-specific, e.g. ``Closed``,
+            ``Done``, ``Resolved``).
+        assigned_to: New assignee identity (email or display name).
+        title: New ``System.Title``.
+        description: New ``System.Description`` (HTML).
+
+    Raises:
+        ValueError: If no field to update was given.
+    """
+    ops: list[dict[str, Any]] = []
+    if state is not None:
+        ops.append(_add("/fields/System.State", state))
+    if assigned_to is not None:
+        ops.append(_add("/fields/System.AssignedTo", assigned_to))
+    if title is not None:
+        ops.append(_add("/fields/System.Title", title))
+    if description is not None:
+        ops.append(_add("/fields/System.Description", description))
+    if not ops:
+        raise ValueError(
+            "nothing to update: give at least one of "
+            "state/assigned_to/title/description"
+        )
+
+    data = client.request(
+        "PATCH",
+        f"_apis/wit/workitems/{work_item_id}",
+        json=ops,
+        content_type=JSON_PATCH,
+    )
+    return _trim(data)
+
+
 def add_link(
     client: AzureDevOpsClient,
     work_item_id: int,
@@ -151,45 +245,17 @@ def add_link(
 
     Args:
         kind: One of ``commit``, ``pull_request``, ``branch`` (all need
-            ``project`` + ``repo``), ``work_item`` (``value`` = target id), or
-            ``hyperlink`` (``value`` = raw URL).
-        value: Commit SHA / PR id / branch name / work-item id / URL per ``kind``.
+            ``project`` + ``repo``), ``build`` (``value`` = build id),
+            ``work_item`` / ``parent`` / ``child`` / ``predecessor`` /
+            ``successor`` (``value`` = target work-item id),
+            or ``hyperlink`` (``value`` = raw URL).
+        value: Commit SHA / PR id / branch name / build id / work-item id / URL
+            per ``kind``.
         project: Team project (required for commit/pull_request/branch).
         repo: Repository name or id (required for commit/pull_request/branch).
         comment: Optional note stored on the relation.
     """
-    if kind not in LINK_KINDS:
-        raise ValueError(f"kind must be one of {LINK_KINDS}, got {kind!r}")
-
-    if kind in ("commit", "pull_request", "branch"):
-        if not project or not repo:
-            raise ValueError(f"kind {kind!r} requires both 'project' and 'repo'")
-        ids = resolve_repo(client, project, repo)
-        artifact = f"{ids['project_id']}%2F{ids['repo_id']}%2F"
-        if kind == "commit":
-            rel, url, name = (
-                "ArtifactLink",
-                f"vstfs:///Git/Commit/{artifact}{value}",
-                "Fixed in Commit",
-            )
-        elif kind == "pull_request":
-            rel, url, name = (
-                "ArtifactLink",
-                f"vstfs:///Git/PullRequestId/{artifact}{value}",
-                "Pull Request",
-            )
-        else:  # branch
-            rel, url, name = (
-                "ArtifactLink",
-                f"vstfs:///Git/Ref/{artifact}GB{value}",
-                "Branch",
-            )
-    elif kind == "work_item":
-        rel = "System.LinkTypes.Related"
-        url = client._url(f"_apis/wit/workItems/{value}")
-        name = None
-    else:  # hyperlink
-        rel, url, name = "Hyperlink", value, None
+    rel, url, name = _build_relation(client, kind, value, project, repo)
 
     attributes: dict[str, Any] = {}
     if name:
@@ -202,6 +268,64 @@ def add_link(
         relation["attributes"] = attributes
 
     ops = [_add("/relations/-", relation)]
+    data = client.request(
+        "PATCH",
+        f"_apis/wit/workitems/{work_item_id}",
+        json=ops,
+        content_type=JSON_PATCH,
+    )
+    return _trim(data)
+
+
+def remove_link(
+    client: AzureDevOpsClient,
+    work_item_id: int,
+    kind: str,
+    value: str,
+    *,
+    project: str | None = None,
+    repo: str | None = None,
+) -> dict[str, Any]:
+    """Remove a reference (relation) from a work item.
+
+    Accepts the same ``kind``/``value`` pairs as :func:`add_link`. The relation
+    is located by matching its rel type and URL, then removed by index with a
+    guarding ``test`` op (the REST API only removes relations by index).
+
+    Raises:
+        ValueError: If no matching relation exists on the work item.
+    """
+    rel, url, _ = _build_relation(client, kind, value, project, repo)
+
+    data = client.request(
+        "GET",
+        f"_apis/wit/workitems/{work_item_id}",
+        params={"$expand": "relations"},
+    )
+    existing = data.get("relations") or [] if isinstance(data, dict) else []
+    index = next(
+        (
+            i
+            for i, r in enumerate(existing)
+            if r.get("rel") == rel and (r.get("url") or "").lower() == url.lower()
+        ),
+        None,
+    )
+    if index is None:
+        present = [_trim_relation(r) for r in existing]
+        raise ValueError(
+            f"work item {work_item_id} has no {kind!r} relation to {value!r}; "
+            f"existing relations: {present}"
+        )
+
+    ops = [
+        {
+            "op": "test",
+            "path": f"/relations/{index}/url",
+            "value": existing[index]["url"],
+        },
+        {"op": "remove", "path": f"/relations/{index}"},
+    ]
     data = client.request(
         "PATCH",
         f"_apis/wit/workitems/{work_item_id}",
@@ -324,6 +448,79 @@ def search_work_items(
 # --------------------------------------------------------------------------- #
 def _add(path: str, value: Any) -> dict[str, Any]:
     return {"op": "add", "path": path, "value": value}
+
+
+def _build_relation(
+    client: AzureDevOpsClient,
+    kind: str,
+    value: str,
+    project: str | None,
+    repo: str | None,
+) -> tuple[str, str, str | None]:
+    """Resolve a link ``kind``/``value`` pair to ``(rel, url, name)``."""
+    if kind not in LINK_KINDS:
+        raise ValueError(f"kind must be one of {LINK_KINDS}, got {kind!r}")
+
+    if kind == "build":
+        # Build artifact URIs carry only the build id; no project/repo needed.
+        return "ArtifactLink", f"vstfs:///Build/Build/{value}", "Build"
+    if kind in ("commit", "pull_request", "branch"):
+        if not project or not repo:
+            raise ValueError(f"kind {kind!r} requires both 'project' and 'repo'")
+        ids = resolve_repo(client, project, repo)
+        artifact = f"{ids['project_id']}%2F{ids['repo_id']}%2F"
+        if kind == "commit":
+            return (
+                "ArtifactLink",
+                f"vstfs:///Git/Commit/{artifact}{value}",
+                "Fixed in Commit",
+            )
+        if kind == "pull_request":
+            return (
+                "ArtifactLink",
+                f"vstfs:///Git/PullRequestId/{artifact}{value}",
+                "Pull Request",
+            )
+        return "ArtifactLink", f"vstfs:///Git/Ref/{artifact}GB{value}", "Branch"
+    if kind in WORK_ITEM_RELATIONS:
+        rel = WORK_ITEM_RELATIONS[kind]
+        return rel, client._url(f"_apis/wit/workItems/{value}"), None
+    return "Hyperlink", value, None  # hyperlink
+
+
+def _trim_relation(relation: dict[str, Any]) -> dict[str, Any]:
+    """Shrink a raw relation to ``{kind, target, ...}`` for agents.
+
+    Work-item relations get the target work-item id as an int; everything else
+    keeps its URL. Unknown rel types pass through with the raw rel as ``kind``.
+    """
+    rel = relation.get("rel", "")
+    url = relation.get("url", "")
+    attributes = relation.get("attributes") or {}
+
+    target: Any = url
+    if rel in _RELATION_KINDS:
+        kind = _RELATION_KINDS[rel]
+        tail = url.rstrip("/").rsplit("/", 1)[-1]
+        target = int(tail) if tail.isdigit() else url
+    elif rel == "Hyperlink":
+        kind = "hyperlink"
+    elif rel == "AttachedFile":
+        kind = "attachment"
+    elif rel == "ArtifactLink":
+        kind = next(
+            (k for prefix, k in _ARTIFACT_KINDS.items() if url.startswith(prefix)),
+            "artifact",
+        )
+    else:
+        kind = rel
+
+    trimmed: dict[str, Any] = {"kind": kind, "target": target}
+    if attributes.get("name"):
+        trimmed["name"] = attributes["name"]
+    if attributes.get("comment"):
+        trimmed["comment"] = attributes["comment"]
+    return trimmed
 
 
 def _esc(value: str) -> str:

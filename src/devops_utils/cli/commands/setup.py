@@ -4,6 +4,10 @@ Copies the bundled agent skills into an agent's skills directory, registers the
 ``devops-utils-mcp`` server in the agent's MCP config, and writes an Azure DevOps
 env-var scaffold. Defaults target Claude Code at user scope (``~/.claude``);
 ``--project`` targets the current repo and ``--dest`` an arbitrary directory.
+
+``setup tracker`` is the per-repo companion: it writes an Azure DevOps
+``docs/agents/issue-tracker.md`` + ``triage-labels.md`` so mattpocock-style
+skills drive work items through ``devops-utils azdo`` instead of ``gh``.
 """
 
 from pathlib import Path
@@ -106,6 +110,45 @@ def env_cmd(project: bool, force: bool, dest: str | None) -> None:
         click.echo(f"wrote  {result}")
     else:
         click.echo(f"skip   {path} (exists; use --force)")
+
+
+@setup.command("tracker")
+@click.option(
+    "--project-name",
+    required=True,
+    prompt="Azure DevOps project name",
+    help="Azure DevOps team project the tracker config points at.",
+)
+@click.option(
+    "--done-state",
+    default="Closed",
+    show_default=True,
+    help="State meaning 'closed' in the project's process template.",
+)
+@click.option(
+    "--dest",
+    default=None,
+    help="Repository root to install into (defaults to the current directory).",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrite existing files instead of skipping them.",
+)
+def tracker_cmd(
+    project_name: str, done_state: str, dest: str | None, force: bool
+) -> None:
+    """Point mattpocock-style skills at Azure DevOps for this repo.
+
+    Writes docs/agents/issue-tracker.md and docs/agents/triage-labels.md so
+    skills that read the repo's tracker config use `devops-utils azdo` (Azure
+    DevOps work items) instead of the default GitHub `gh` CLI.
+    """
+    base = Path(dest) if dest is not None else Path.cwd()
+    written, skipped = install.install_tracker(
+        base, project_name, done_state=done_state, force=force
+    )
+    _report(written, skipped)
 
 
 @setup.command("all")

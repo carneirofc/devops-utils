@@ -107,6 +107,51 @@ def install_skills(
     return written, skipped
 
 
+def _trackers_resource():
+    """Return the ``importlib.resources`` traversable for the tracker templates."""
+    return files("devops_utils.agent.trackers")
+
+
+def install_tracker(
+    dest: Path,
+    project_name: str,
+    done_state: str = "Closed",
+    force: bool = False,
+) -> tuple[list[Path], list[Path]]:
+    """Write the Azure DevOps tracker config for mattpocock-style skills.
+
+    Renders the bundled templates (``agent/trackers/*.md``) into
+    ``dest/docs/agents/``, substituting the ``{project}`` and ``{done_state}``
+    placeholders. The resulting ``issue-tracker.md`` / ``triage-labels.md`` are
+    the config files skills like mattpocock/skills read to learn how to talk to
+    the issue tracker.
+
+    Args:
+        dest: Repository root to install into (files go to ``docs/agents/``).
+        project_name: Azure DevOps team project name.
+        done_state: ``System.State`` value that means "closed" in the project's
+            process template (e.g. ``Closed``, ``Done``, ``Resolved``).
+        force: Overwrite existing files instead of skipping them.
+
+    Returns:
+        A ``(written, skipped)`` tuple of destination paths.
+    """
+    written: list[Path] = []
+    skipped: list[Path] = []
+    for entry in sorted(_trackers_resource().iterdir(), key=lambda e: e.name):
+        if not entry.name.endswith(".md"):
+            continue
+        text = (
+            entry.read_text(encoding="utf-8")
+            .replace("{project}", project_name)
+            .replace("{done_state}", done_state)
+        )
+        target = dest / "docs" / "agents" / entry.name
+        result = _write(target, text, force)
+        (written if result is not None else skipped).append(target)
+    return written, skipped
+
+
 def mcp_server_entry() -> dict[str, object]:
     """Return the MCP ``mcpServers`` entry for the stdio server."""
     return {"command": MCP_COMMAND, "args": [], "env": {}}
