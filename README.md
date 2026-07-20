@@ -7,18 +7,59 @@ Description
 [![PyPI version fury.io](https://badge.fury.io/py/devops-utils.svg)](https://pypi.python.org/pypi/devops-utils/)
 [![Read the Docs](https://readthedocs.org/projects/spack/badge/?version=latest)](https://carneirofc.github.io/devops-utils/)
 
-A set of utility scripts for DevOps
+A set of utility tools for DevOps, built around a dependency-free core that is
+exposed through several optional surfaces: a **CLI**, a **Qt UI**, a **TUI**, an
+**MCP server**, and **agent tools**.
 
-Development packages are listed at [requirements-dev.txt](requirements-dev.txt) and runtime dependencies at [requirements.txt](requirements.txt).
+Requires Python 3.12+.
+
+
+Install
+-------
+
+```bash
+# core + CLI
+pip install devops-utils
+
+# with optional surfaces
+pip install "devops-utils[mcp]"   # MCP server
+pip install "devops-utils[tui]"   # Textual TUI
+pip install "devops-utils[qt]"    # PySide6 desktop UI
+pip install "devops-utils[all]"   # everything
+```
+
+For development this project uses [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --all-extras --dev
+```
+
+
+Usage
+-----
+
+```bash
+# Mask Secret values in a Kubernetes manifest, print to stdout
+devops-utils sanitize manifest.yml -o -
+
+# Write the sanitized manifest to a file
+devops-utils sanitize manifest.yml -o manifest.sanitized.yml
+```
+
+Run the MCP server (requires the `mcp` extra):
+
+```bash
+devops-utils-mcp
+```
 
 
 Author
 ------
 
-Cláudio Ferreira Carneiro - carneirofc @ claudiofcarneiro@hotmail.com
+Cláudio Ferreira Carneiro - carneirofc @ claudiofcarneiro@gmail.com
 
 
 Licence
 -------
 
-devops-utils licenced under GPL v3.
+devops-utils is licensed under the MIT License. See [LICENSE](LICENSE).
