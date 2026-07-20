@@ -32,7 +32,9 @@ def repos(project: str | None) -> None:
 @azdo.command("list")
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option("--state", "states", multiple=True, help="Filter by state (repeatable).")
-@click.option("--type", "types", multiple=True, help="Filter by work-item type (repeatable).")
+@click.option(
+    "--type", "types", multiple=True, help="Filter by work-item type (repeatable)."
+)
 @click.option("--assigned-to", default=None, help="Filter by assignee.")
 @click.option("--top", default=50, show_default=True, help="Max items to return.")
 def list_(
@@ -58,7 +60,9 @@ def list_(
 @click.option("--project", required=True, help="Team project name or id.")
 @click.argument("text")
 @click.option("--state", "states", multiple=True, help="Filter by state (repeatable).")
-@click.option("--type", "types", multiple=True, help="Filter by work-item type (repeatable).")
+@click.option(
+    "--type", "types", multiple=True, help="Filter by work-item type (repeatable)."
+)
 @click.option("--top", default=50, show_default=True, help="Max items to return.")
 def search(
     project: str,
@@ -70,7 +74,11 @@ def search(
     """Text-search work items by title/description."""
     _echo(
         tools.azdo_search_work_items(
-            project, text, states=list(states) or None, types=list(types) or None, top=top
+            project,
+            text,
+            states=list(states) or None,
+            types=list(types) or None,
+            top=top,
         )
     )
 
@@ -84,7 +92,9 @@ def get(work_item_id: int) -> None:
 
 @azdo.command("create")
 @click.option("--project", required=True, help="Team project name or id.")
-@click.option("--type", "work_item_type", required=True, help="Work-item type, e.g. Bug/Task.")
+@click.option(
+    "--type", "work_item_type", required=True, help="Work-item type, e.g. Bug/Task."
+)
 @click.option("--title", required=True, help="Work-item title.")
 @click.option("--description", default=None, help="HTML description.")
 @click.option("--tag", "tags", multiple=True, help="Tag (repeatable).")
@@ -147,8 +157,12 @@ def tag(work_item_id: int, tags: tuple[str, ...], mode: str) -> None:
     type=click.Choice(["commit", "pull_request", "branch", "work_item", "hyperlink"]),
     help="Reference kind.",
 )
-@click.option("--value", required=True, help="SHA / PR id / branch / work-item id / URL.")
-@click.option("--project", default=None, help="Required for commit/pull_request/branch.")
+@click.option(
+    "--value", required=True, help="SHA / PR id / branch / work-item id / URL."
+)
+@click.option(
+    "--project", default=None, help="Required for commit/pull_request/branch."
+)
 @click.option("--repo", default=None, help="Required for commit/pull_request/branch.")
 @click.option("--comment", default=None, help="Optional note on the relation.")
 def link(

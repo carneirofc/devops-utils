@@ -36,7 +36,9 @@ def _report(written: list[Path], skipped: list[Path]) -> None:
         click.echo(f"skip   {path} (exists; use --force)")
 
 
-def _skills_target(project: bool, dest: str | None, claude_layout: bool) -> tuple[Path, str]:
+def _skills_target(
+    project: bool, dest: str | None, claude_layout: bool
+) -> tuple[Path, str]:
     """Resolve the skills base dir and layout for the chosen scope."""
     if dest is not None:
         return Path(dest), ("claude" if claude_layout else "flat")
@@ -57,7 +59,9 @@ def setup() -> None:
     is_flag=True,
     help="With --dest, use the Claude <name>/SKILL.md layout instead of flat.",
 )
-def skills_cmd(project: bool, force: bool, dest: str | None, claude_layout: bool) -> None:
+def skills_cmd(
+    project: bool, force: bool, dest: str | None, claude_layout: bool
+) -> None:
     """Copy the bundled agent skills into an agent's skills directory."""
     base, layout = _skills_target(project, dest, claude_layout)
     written, skipped = install.install_skills(base, layout=layout, force=force)
@@ -79,12 +83,16 @@ def mcp_cmd(project: bool, force: bool, dest: str | None) -> None:
     if changed:
         click.echo(f"wrote  {path} (mcpServers.{install.MCP_SERVER_NAME})")
     else:
-        click.echo(f"skip   {path} ({install.MCP_SERVER_NAME} already set; use --force)")
+        click.echo(
+            f"skip   {path} ({install.MCP_SERVER_NAME} already set; use --force)"
+        )
 
 
 @setup.command("env")
 @_scope_options
-@click.option("--dest", default=None, help="Write the env scaffold into this directory.")
+@click.option(
+    "--dest", default=None, help="Write the env scaffold into this directory."
+)
 def env_cmd(project: bool, force: bool, dest: str | None) -> None:
     """Write an Azure DevOps env-var scaffold."""
     if dest is not None:
@@ -110,7 +118,11 @@ def env_cmd(project: bool, force: bool, dest: str | None) -> None:
 )
 @click.pass_context
 def all_cmd(
-    ctx: click.Context, project: bool, force: bool, dest: str | None, claude_layout: bool
+    ctx: click.Context,
+    project: bool,
+    force: bool,
+    dest: str | None,
+    claude_layout: bool,
 ) -> None:
     """Install skills, wire the MCP server, and write the env scaffold."""
     ctx.invoke(

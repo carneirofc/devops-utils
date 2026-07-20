@@ -73,7 +73,9 @@ class AzureDevOpsClient:
             raise ValueError("token is required")
         scheme = auth_scheme.strip().lower()
         if scheme not in ("bearer", "pat"):
-            raise ValueError(f"auth_scheme must be 'bearer' or 'pat', got {auth_scheme!r}")
+            raise ValueError(
+                f"auth_scheme must be 'bearer' or 'pat', got {auth_scheme!r}"
+            )
 
         self.org_url = org_url.strip().rstrip("/")
         self.token = token.strip()
@@ -157,7 +159,9 @@ class AzureDevOpsClient:
                 headers=headers,
             )
         if response.status_code < 200 or response.status_code >= 300:
-            raise AzureDevOpsError(response.status_code, method, str(response.url), response.text)
+            raise AzureDevOpsError(
+                response.status_code, method, str(response.url), response.text
+            )
         if not response.content:
             return None
         try:

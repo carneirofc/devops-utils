@@ -35,7 +35,9 @@ def _record(store):
         body = request.content.decode() if request.content else ""
         store.append(request)
         # Default: echo an empty work item shell.
-        return httpx.Response(200, json={"id": 42, "fields": {}, "url": "u", "_body": body})
+        return httpx.Response(
+            200, json={"id": 42, "fields": {}, "url": "u", "_body": body}
+        )
 
     return handler
 
@@ -134,7 +136,9 @@ def _repo_handler(store):
 
 def test_add_commit_link_builds_vstfs_uri():
     reqs: list[httpx.Request] = []
-    add_link(_client(_repo_handler(reqs)), 7, "commit", "abc123", project="Proj", repo="R")
+    add_link(
+        _client(_repo_handler(reqs)), 7, "commit", "abc123", project="Proj", repo="R"
+    )
     patch = [r for r in reqs if r.method == "PATCH"][0]
     rel = json.loads(patch.content)[0]["value"]
     assert rel["rel"] == "ArtifactLink"
@@ -143,14 +147,18 @@ def test_add_commit_link_builds_vstfs_uri():
 
 def test_add_pull_request_link_uri():
     reqs: list[httpx.Request] = []
-    add_link(_client(_repo_handler(reqs)), 7, "pull_request", "55", project="Proj", repo="R")
+    add_link(
+        _client(_repo_handler(reqs)), 7, "pull_request", "55", project="Proj", repo="R"
+    )
     rel = json.loads([r for r in reqs if r.method == "PATCH"][0].content)[0]["value"]
     assert rel["url"] == "vstfs:///Git/PullRequestId/proj-guid%2Frepo-guid%2F55"
 
 
 def test_add_branch_link_uri():
     reqs: list[httpx.Request] = []
-    add_link(_client(_repo_handler(reqs)), 7, "branch", "main", project="Proj", repo="R")
+    add_link(
+        _client(_repo_handler(reqs)), 7, "branch", "main", project="Proj", repo="R"
+    )
     rel = json.loads([r for r in reqs if r.method == "PATCH"][0].content)[0]["value"]
     assert rel["url"] == "vstfs:///Git/Ref/proj-guid%2Frepo-guid%2FGBmain"
 

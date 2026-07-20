@@ -167,11 +167,23 @@ def add_link(
         ids = resolve_repo(client, project, repo)
         artifact = f"{ids['project_id']}%2F{ids['repo_id']}%2F"
         if kind == "commit":
-            rel, url, name = "ArtifactLink", f"vstfs:///Git/Commit/{artifact}{value}", "Fixed in Commit"
+            rel, url, name = (
+                "ArtifactLink",
+                f"vstfs:///Git/Commit/{artifact}{value}",
+                "Fixed in Commit",
+            )
         elif kind == "pull_request":
-            rel, url, name = "ArtifactLink", f"vstfs:///Git/PullRequestId/{artifact}{value}", "Pull Request"
+            rel, url, name = (
+                "ArtifactLink",
+                f"vstfs:///Git/PullRequestId/{artifact}{value}",
+                "Pull Request",
+            )
         else:  # branch
-            rel, url, name = "ArtifactLink", f"vstfs:///Git/Ref/{artifact}GB{value}", "Branch"
+            rel, url, name = (
+                "ArtifactLink",
+                f"vstfs:///Git/Ref/{artifact}GB{value}",
+                "Branch",
+            )
     elif kind == "work_item":
         rel = "System.LinkTypes.Related"
         url = client._url(f"_apis/wit/workItems/{value}")
@@ -268,8 +280,9 @@ def list_work_items(
         clauses.append(_in_clause("System.WorkItemType", types))
     if assigned_to:
         clauses.append(f"[System.AssignedTo] = '{_esc(assigned_to)}'")
+    # WIQL, not SQL; all interpolated values pass through _esc(). nosec B608
     wiql = (
-        "SELECT [System.Id] FROM WorkItems WHERE "
+        "SELECT [System.Id] FROM WorkItems WHERE "  # nosec B608
         + " AND ".join(clauses)
         + " ORDER BY [System.ChangedDate] DESC"
     )
@@ -296,8 +309,9 @@ def search_work_items(
         clauses.append(_in_clause("System.State", states))
     if types:
         clauses.append(_in_clause("System.WorkItemType", types))
+    # WIQL, not SQL; all interpolated values pass through _esc(). nosec B608
     wiql = (
-        "SELECT [System.Id] FROM WorkItems WHERE "
+        "SELECT [System.Id] FROM WorkItems WHERE "  # nosec B608
         + " AND ".join(clauses)
         + " ORDER BY [System.ChangedDate] DESC"
     )
