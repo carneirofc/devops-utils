@@ -2,6 +2,12 @@
 
 ## Agent skills
 
+### Azure DevOps work items
+
+Create/comment/tag work items, add references (commit/PR/branch/work-item/hyperlink)
+and attachments, list repos, and list/search work items — cloud + on-prem. Config
+via env vars; no machine credentials. See `docs/agents/azure-devops.md`.
+
 ### Issue tracker
 
 Issues and PRDs are tracked in this repo's GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
