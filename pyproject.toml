@@ -58,6 +58,10 @@ source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/devops_utils"]
+# Bundled agent skills are data files the VCS selector may skip on a fresh
+# checkout (e.g. still-untracked); ensure every skill ships so `setup skills`
+# can read them via importlib.resources.
+artifacts = ["src/devops_utils/agent/skills/*.md"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "tests", "README.md", "LICENSE"]

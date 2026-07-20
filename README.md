@@ -85,6 +85,30 @@ The same operations are exposed as MCP tools (`azdo_*`) and framework-agnostic
 agent callables in `devops_utils.agent.tools`, all reading the env vars above.
 
 
+Set up an agent
+---------------
+
+`devops-utils setup` installs the bundled skills, wires the `devops-utils-mcp`
+server into an agent's MCP config, and writes an Azure DevOps env scaffold.
+Defaults target Claude Code at user scope (`~/.claude`).
+
+```bash
+# Everything, for the current user (skills + MCP server + env scaffold)
+devops-utils setup all
+
+# Scope to the current repo (./.claude, ./.mcp.json)
+devops-utils setup all --project
+
+# Individual steps, or an arbitrary directory
+devops-utils setup skills --dest ./agent-skills
+devops-utils setup mcp --dest .
+devops-utils setup env
+```
+
+Use `--force` to overwrite existing files; `setup mcp` merges into any existing
+config without clobbering other servers.
+
+
 Author
 ------
 

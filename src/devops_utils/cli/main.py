@@ -5,6 +5,7 @@ import click
 from devops_utils import __version__
 from devops_utils.cli.commands.azdo import azdo
 from devops_utils.cli.commands.sanitize import sanitize
+from devops_utils.cli.commands.setup import setup
 
 
 @click.group()
@@ -15,6 +16,7 @@ def cli() -> None:
 
 cli.add_command(sanitize)
 cli.add_command(azdo)
+cli.add_command(setup)
 
 
 if __name__ == "__main__":
