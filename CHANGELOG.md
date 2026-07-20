@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New `azdo link` kind `build`: reference a build (pipeline run) from a work
+  item via `vstfs:///Build/Build/{id}` — needs only the build id, no
+  project/repo. Read back by `azdo get --relations` and removable with
+  `azdo unlink`.
+- `azdo builds` / `azdo build` (CLI) and `azdo_list_builds` / `azdo_get_build`
+  (MCP + agent callables): list and inspect builds (id, number, definition,
+  status, result, branch) with definition/branch/status/result filters.
+- `azdo build-tag` / `azdo_tag_build`: add tags to a build (builds have no
+  comments; tags are the annotation mechanism).
+- `azdo pr-comment` / `azdo_comment_pull_request`: post a comment thread on a
+  pull request, or reply to an existing thread via `--thread`. Commit comments
+  are documented as unsupported (Azure DevOps exposes no REST endpoint for
+  them).
+
 - `azdo create --parent <id>` / `azdo_create_work_item(parent=...)`: create a
   work item directly under a parent (e.g. a Task under a User Story) in one
   call.

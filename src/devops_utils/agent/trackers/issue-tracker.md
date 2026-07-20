@@ -42,6 +42,13 @@ If a command fails with a missing-variable error, ask the user to fill in the
 - **Reference a PR / commit / branch**:
   `devops-utils azdo link <id> --kind pull_request --value <pr-id> --project {project} --repo <repo>`
   (likewise `--kind commit --value <sha>` and `--kind branch --value <name>`).
+- **Reference a build**: `devops-utils azdo link <id> --kind build --value <build-id>`
+  (no `--project`/`--repo` needed). Find the build id with
+  `devops-utils azdo builds --project {project}`.
+- **Comment on a PR**:
+  `devops-utils azdo pr-comment <pr-id> "..." --project {project} --repo <repo>`.
+  Commits cannot be commented on via the REST API — comment on the PR or the
+  work item instead.
 - **Attach a file**: `devops-utils azdo attach <id> ./path/to/file`.
 
 ## When a skill says "publish to the issue tracker"

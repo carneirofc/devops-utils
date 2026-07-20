@@ -1,6 +1,6 @@
 ---
 name: azure-devops-work-items
-description: Create, query, annotate, and link Azure DevOps work items (cloud + on-prem) via the azdo tools.
+description: Create, query, annotate, and link Azure DevOps work items, builds, and PR comments (cloud + on-prem) via the azdo tools.
 ---
 
 # Azure DevOps work items
@@ -9,7 +9,8 @@ Use this skill to drive Azure DevOps work items and repositories against either
 **Services (cloud, `https://dev.azure.com/{org}`)** or **Server (on-prem TFS
 collection)**. Reach for it when the task is: create a Bug/Task/Story, list or
 search work items, comment, tag, assign someone, change state (close/resolve),
-or attach a commit / PR / branch / file / URL to a work item. Requires the
+attach a commit / PR / branch / build / file / URL to a work item, list or
+inspect builds, tag a build, or comment on a pull request. Requires the
 `azure` extra (`httpx`).
 
 ## Configuration (no machine credentials)
@@ -28,14 +29,15 @@ secret never flows through tool arguments or logs (see
 
 ## Surfaces
 
-The same ten operations are exposed three ways, all reading the env vars above:
+The same fifteen operations are exposed three ways, all reading the env vars above:
 
-- **CLI:** `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,attach}`
+- **CLI:** `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,unlink,attach,builds,build,build-tag,pr-comment}`
 - **MCP tools:** `azdo_*` — served by `devops-utils-mcp` (requires the `mcp` extra).
 - **Python / agent callables:** `from devops_utils.agent.tools import azdo_*`.
 
 Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
-`workitems.py`, `repos.py`) and is surface-agnostic.
+`workitems.py`, `repos.py`, `builds.py`, `pullrequests.py`) and is
+surface-agnostic.
 
 ## Operations at a glance
 
@@ -44,13 +46,18 @@ Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
 | `azdo_list_repositories` | `azdo repos` | `project: str \| None` |
 | `azdo_list_work_items` | `azdo list` | `project: str`, `states/types: list[str] \| None`, `assigned_to`, `top: int` |
 | `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types`, `top` |
-| `azdo_get_work_item` | `azdo get` | `work_item_id: int` |
-| `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to` |
+| `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool` |
+| `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent` |
 | `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description` |
 | `azdo_comment_work_item` | `azdo comment` | `work_item_id: int`, `text: str` |
 | `azdo_set_work_item_tags` | `azdo tag` | `work_item_id`, `tags: list[str]`, `mode: "add" \| "replace"` |
 | `azdo_add_work_item_link` | `azdo link` | `work_item_id`, `kind`, `value`, `project`, `repo`, `comment` |
+| `azdo_remove_work_item_link` | `azdo unlink` | `work_item_id`, `kind`, `value`, `project`, `repo` |
 | `azdo_add_work_item_attachment` | `azdo attach` | `work_item_id`, `file_path`, `comment` |
+| `azdo_list_builds` | `azdo builds` | `project`, `definitions: list[int]`, `branch`, `statuses/results: list[str]`, `top` |
+| `azdo_get_build` | `azdo build` | `project: str`, `build_id: int` |
+| `azdo_tag_build` | `azdo build-tag` | `project`, `build_id`, `tags: list[str]` |
+| `azdo_comment_pull_request` | `azdo pr-comment` | `project`, `repo`, `pull_request_id`, `text`, `thread_id` |
 
 ## Operations reference
 
@@ -105,10 +112,15 @@ CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T .
 ### Get one work item
 
 ```python
-azdo_get_work_item(work_item_id: int) -> dict
+azdo_get_work_item(work_item_id: int, relations: bool = False) -> dict
 ```
 
-CLI: `devops-utils azdo get WORK_ITEM_ID`
+With `relations=True` the result carries a `relations` list of
+`{kind, target, ...}` dicts — work-item kinds (`parent`, `child`,
+`predecessor`, `successor`, `work_item`) carry the target work-item id;
+`hyperlink`/`attachment`/`commit`/`pull_request`/`branch`/`build` carry the URL.
+
+CLI: `devops-utils azdo get WORK_ITEM_ID [--relations]`
 
 ### Create a work item
 
@@ -122,10 +134,11 @@ azdo_create_work_item(
     area_path: str | None = None,
     iteration_path: str | None = None,
     assigned_to: str | None = None,    # see "Assigning users"
+    parent: int | None = None,         # create directly under this work item
 ) -> dict
 ```
 
-CLI: `devops-utils azdo create --project NAME --type TYPE --title "T" [--description H] [--tag X ...] [--area-path P] [--iteration-path P] [--assigned-to WHO]`
+CLI: `devops-utils azdo create --project NAME --type TYPE --title "T" [--description H] [--tag X ...] [--area-path P] [--iteration-path P] [--assigned-to WHO] [--parent ID]`
 (`--tag` is repeatable.)
 
 **Work-item type** — `work_item_type` is a free-form string sent as
@@ -220,6 +233,7 @@ One entry point covers every reference kind (`LINK_KINDS` in `workitems.py`):
 | `commit` | `project` + `repo` | commit SHA | `ArtifactLink` `vstfs:///Git/Commit/...` |
 | `pull_request` | `project` + `repo` | PR id | `ArtifactLink` `vstfs:///Git/PullRequestId/...` |
 | `branch` | `project` + `repo` | branch name | `ArtifactLink` `vstfs:///Git/Ref/...GB{branch}` |
+| `build` | — | build id | `ArtifactLink` `vstfs:///Build/Build/{id}` |
 | `work_item` | — | target work-item id | `System.LinkTypes.Related` |
 | `parent` | — | target work-item id | `System.LinkTypes.Hierarchy-Reverse` |
 | `child` | — | target work-item id | `System.LinkTypes.Hierarchy-Forward` |
@@ -235,6 +249,71 @@ dependency maps).
 An unknown `kind`, or a repo kind missing `project`/`repo`, raises `ValueError`.
 
 CLI: `devops-utils azdo link WORK_ITEM_ID --kind KIND --value V [--project P] [--repo R] [--comment C]`
+
+### Remove a link
+
+```python
+azdo_remove_work_item_link(
+    work_item_id: int,
+    kind: str,                         # same kinds as azdo_add_work_item_link
+    value: str,
+    project: str | None = None,        # required for commit/pull_request/branch
+    repo: str | None = None,           # required for commit/pull_request/branch
+) -> dict
+```
+
+Removes a reference using the same kind/value pairs as `link` — e.g.
+re-parenting is `unlink --kind parent --value <old>` then
+`link --kind parent --value <new>`. Raises `ValueError` if no matching relation
+exists.
+
+CLI: `devops-utils azdo unlink WORK_ITEM_ID --kind KIND --value V [--project P] [--repo R]`
+
+### Builds (list / get / tag / link)
+
+```python
+azdo_list_builds(
+    project: str,
+    definitions: list[int] | None = None,  # pipeline definition ids
+    branch: str | None = None,             # "main" expands to refs/heads/main
+    statuses: list[str] | None = None,     # inProgress/completed/notStarted/...
+    results: list[str] | None = None,      # succeeded/partiallySucceeded/failed/canceled
+    top: int = 25,
+) -> list[dict]
+
+azdo_get_build(project: str, build_id: int) -> dict
+
+azdo_tag_build(project: str, build_id: int, tags: list[str]) -> list[str]
+```
+
+Builds return `{id, number, definition, status, result, branch, requested_for,
+queue_time, finish_time, web_url}`. Use the `id` to reference a build from a
+work item — `azdo_add_work_item_link(wi, "build", "<build-id>")` needs no
+`project`/`repo`. Builds have **no comments**; `azdo_tag_build` (tags) is the
+annotation mechanism and returns the resulting tag list.
+
+CLI: `devops-utils azdo builds --project P [--definition ID ...] [--branch B] [--status S ...] [--result R ...] [--top N]`,
+`devops-utils azdo build BUILD_ID --project P`,
+`devops-utils azdo build-tag BUILD_ID TAG [TAG ...] --project P`
+
+### Comment on a pull request
+
+```python
+azdo_comment_pull_request(
+    project: str,
+    repo: str,
+    pull_request_id: int,
+    text: str,
+    thread_id: int | None = None,      # reply to an existing thread
+) -> dict                              # {thread_id, comment_id, status}
+```
+
+Without `thread_id` a new (active) comment thread is created; with it the
+comment is a reply on that thread. **Commits cannot be commented on** — Azure
+DevOps has no documented REST endpoint for commit comments; comment on the PR
+containing the commit, or on the work item that links it.
+
+CLI: `devops-utils azdo pr-comment PR_ID "TEXT" --project P --repo R [--thread N]`
 
 ### Attach a file
 
@@ -259,8 +338,11 @@ Every work-item op returns a trimmed dict (`_trim` in `workitems.py`):
 ```
 
 `list`/`search` return a `list` of these; `get`/`create`/`comment`/`tag`/`link`/
-`attach` return a single one. `azdo_list_repositories` returns its own
-`{id, name, project, default_branch, web_url}` shape.
+`unlink`/`attach` return a single one. `azdo_list_repositories` returns its own
+`{id, name, project, default_branch, web_url}` shape, builds return
+`{id, number, definition, status, result, branch, requested_for, queue_time,
+finish_time, web_url}`, `azdo_tag_build` a plain tag list, and
+`azdo_comment_pull_request` `{thread_id, comment_id, status}`.
 
 ## Worked example: create → assign → tag → comment → link
 

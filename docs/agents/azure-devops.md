@@ -17,14 +17,15 @@ Windows credential store). Everything comes from environment variables:
 
 ## Surfaces
 
-The same eleven operations are exposed three ways, all reading the env vars above:
+The same fifteen operations are exposed three ways, all reading the env vars above:
 
-- **CLI**: `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,unlink,attach}`
+- **CLI**: `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,unlink,attach,builds,build,build-tag,pr-comment}`
 - **MCP tools**: `azdo_*` (run `devops-utils-mcp`)
 - **Agent callables**: `devops_utils.agent.tools.azdo_*`
 
 Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
-`workitems.py`, `repos.py`) and is surface-agnostic.
+`workitems.py`, `repos.py`, `builds.py`, `pullrequests.py`) and is
+surface-agnostic.
 
 ## References (`link` / `azdo_add_work_item_link`)
 
@@ -35,6 +36,7 @@ One entry point covers every reference kind:
 | `commit` | project + repo | commit SHA | `ArtifactLink` `vstfs:///Git/Commit/...` |
 | `pull_request` | project + repo | PR id | `ArtifactLink` `vstfs:///Git/PullRequestId/...` |
 | `branch` | project + repo | branch name | `ArtifactLink` `vstfs:///Git/Ref/...GB{branch}` |
+| `build` | — | build id | `ArtifactLink` `vstfs:///Build/Build/{id}` |
 | `work_item` | — | target work-item id | `System.LinkTypes.Related` |
 | `parent` | — | target work-item id | `System.LinkTypes.Hierarchy-Reverse` |
 | `child` | — | target work-item id | `System.LinkTypes.Hierarchy-Forward` |
@@ -62,6 +64,29 @@ JSON-Patch `test` op.
 `update` (`azdo update` / `azdo_update_work_item`) changes `System.State`,
 `System.AssignedTo`, `System.Title`, and/or `System.Description` on an existing
 item — state names are process-template-specific (`Closed`/`Done`/`Resolved`).
+
+## Builds
+
+- **Query**: `azdo builds --project P [--definition ID] [--branch B] [--status S] [--result R] [--top N]` /
+  `azdo_list_builds(project, ...)` lists builds (newest first) as trimmed
+  `{id, number, definition, status, result, branch, requested_for, queue_time, finish_time, web_url}`
+  dicts; `azdo build <id> --project P` / `azdo_get_build` fetches one. Short
+  branch names are expanded to `refs/heads/...`.
+- **Link to a work item**: `azdo link <wi> --kind build --value <build-id>` —
+  no `project`/`repo` needed (the artifact URI carries only the build id).
+- **Tag**: `azdo build-tag <build-id> TAG [TAG ...] --project P` /
+  `azdo_tag_build` adds tags (builds have no comments; tags are the annotation)
+  and returns the resulting tag list.
+
+## Pull-request comments
+
+`azdo pr-comment <pr-id> "TEXT" --project P --repo R [--thread N]` /
+`azdo_comment_pull_request` posts a new (active) comment thread on a PR, or a
+reply when a thread id is given. Returns `{thread_id, comment_id, status}`.
+
+**Commits cannot be commented on** — Azure DevOps has no documented REST
+endpoint for commit comments (the web UI uses an internal API). Comment on the
+PR containing the commit, or on the work item that links it.
 
 Comments use the `System.History` field and search uses WIQL `CONTAINS`, both for
 maximum on-prem compatibility (no preview-only endpoints or separate Search host).
