@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Human-in-the-loop confirmation for work-item **write** tools on the MCP
+  server: `azdo_create_work_item`, `azdo_comment_work_item`,
+  `azdo_set_work_item_tags`, `azdo_update_work_item`, `azdo_add_work_item_link`,
+  `azdo_remove_work_item_link`, and `azdo_add_work_item_attachment` now prompt
+  the client for approval via MCP elicitation before mutating Azure DevOps.
+  Declining returns a `cancelled` status without writing. When the client cannot
+  prompt (elicitation unsupported / non-interactive), the write is **blocked**
+  unless `DEVOPS_UTILS_SKIP_CONFIRMATION` is set to a truthy value
+  (`1`/`true`/`yes`/`on`) to allow unattended automation. Read tools and the
+  non-work-item writes (`azdo_tag_build`, `azdo_comment_pull_request`) are
+  unaffected, as are the CLI and agent callables (already human/caller driven).
+
 ## [0.2.0] - 2026-07-20
 
 ### Added

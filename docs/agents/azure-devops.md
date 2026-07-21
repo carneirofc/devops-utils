@@ -14,6 +14,22 @@ Windows credential store). Everything comes from environment variables:
 | `AZURE_DEVOPS_TOKEN` | yes | Bearer token or PAT |
 | `AZURE_DEVOPS_AUTH_SCHEME` | no | `bearer` (default) sends `Authorization: Bearer`; `pat` sends `Authorization: Basic base64(":"+token)` |
 | `AZURE_DEVOPS_API_VERSION` | no | Default `7.1`; lower it for older on-prem servers |
+| `DEVOPS_UTILS_SKIP_CONFIRMATION` | no | Truthy (`1`/`true`/`yes`/`on`) bypasses the MCP work-item write confirmation (see *Human-in-the-loop*) |
+
+## Human-in-the-loop (MCP work-item writes)
+
+On the **MCP server**, the seven work-item write tools (`azdo_create_work_item`,
+`azdo_comment_work_item`, `azdo_set_work_item_tags`, `azdo_update_work_item`,
+`azdo_add_work_item_link`, `azdo_remove_work_item_link`,
+`azdo_add_work_item_attachment`) require human approval via MCP **elicitation**
+before mutating Azure DevOps — the tool describes the pending change and applies
+it only on `accept`; `decline`/`cancel` returns a `cancelled` status and writes
+nothing. When the client can't prompt (elicitation unsupported / non-interactive),
+the write is **blocked** unless `DEVOPS_UTILS_SKIP_CONFIRMATION` is truthy, which
+allows unattended automation. Read tools and the non-work-item writes
+(`azdo_tag_build`, `azdo_comment_pull_request`) are not gated; the CLI and agent
+callables are unaffected (a human/caller invokes them directly). Implemented in
+`src/devops_utils/mcp/server.py` (`_confirm_write` + `WORK_ITEM_WRITE_TOOLS`).
 
 ## Surfaces
 

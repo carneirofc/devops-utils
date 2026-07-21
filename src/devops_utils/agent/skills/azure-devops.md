@@ -26,6 +26,20 @@ secret never flows through tool arguments or logs (see
 | `AZURE_DEVOPS_TOKEN` | yes | Bearer token or PAT |
 | `AZURE_DEVOPS_AUTH_SCHEME` | no | `bearer` (default) → `Authorization: Bearer`; `pat` → `Authorization: Basic base64(":"+token)` |
 | `AZURE_DEVOPS_API_VERSION` | no | Default `7.1`; lower it for older on-prem servers |
+| `DEVOPS_UTILS_SKIP_CONFIRMATION` | no | Truthy (`1`/`true`/`yes`/`on`) bypasses the MCP work-item write confirmation for unattended automation (see *Human-in-the-loop*) |
+
+## Human-in-the-loop (MCP work-item writes)
+
+On the **MCP server** only, the seven work-item **write** tools —
+`azdo_create_work_item`, `azdo_comment_work_item`, `azdo_set_work_item_tags`,
+`azdo_update_work_item`, `azdo_add_work_item_link`, `azdo_remove_work_item_link`,
+`azdo_add_work_item_attachment` — prompt for human approval via MCP
+**elicitation** before mutating Azure DevOps. Declining returns a `cancelled`
+status and writes nothing. If the client can't prompt (elicitation unsupported /
+non-interactive) the write is **blocked** unless `DEVOPS_UTILS_SKIP_CONFIRMATION`
+is truthy. Read tools, `azdo_tag_build`, and `azdo_comment_pull_request` are not
+gated; the CLI and Python callables are unaffected (a human/caller drives them
+directly).
 
 ## Surfaces
 
