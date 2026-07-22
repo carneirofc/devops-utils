@@ -11,10 +11,19 @@ from devops_utils.core.azure_devops.client import (
 from devops_utils.core.azure_devops.builds import (
     add_build_tags,
     get_build,
+    get_build_log,
+    get_build_timeline,
+    list_build_logs,
     list_builds,
+    list_definitions,
 )
 from devops_utils.core.azure_devops.pullrequests import comment_on_pull_request
-from devops_utils.core.azure_devops.repos import list_repositories, resolve_repo
+from devops_utils.core.azure_devops.repos import (
+    code_search,
+    find_repo_items,
+    list_repositories,
+    resolve_repo,
+)
 from devops_utils.core.azure_devops.workitems import (
     add_attachment,
     add_comment,
@@ -36,11 +45,17 @@ __all__ = [
     "add_build_tags",
     "add_comment",
     "add_link",
+    "code_search",
     "comment_on_pull_request",
     "create_work_item",
+    "find_repo_items",
     "get_build",
+    "get_build_log",
+    "get_build_timeline",
     "get_work_item",
+    "list_build_logs",
     "list_builds",
+    "list_definitions",
     "list_repositories",
     "list_work_items",
     "query_wiql",

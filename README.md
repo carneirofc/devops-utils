@@ -71,8 +71,9 @@ export AZURE_DEVOPS_API_VERSION="7.1"      # lower for older on-prem servers
 ```
 
 ```bash
-devops-utils azdo repos --project MyProject
+devops-utils azdo repos --project MyProject --name api
 devops-utils azdo list --project MyProject --state Active --type Bug
+devops-utils azdo list --project MyProject --mine --tag backend   # @Me macro
 devops-utils azdo search --project MyProject "login timeout"
 devops-utils azdo create --project MyProject --type Task --title "Fix flaky test"
 devops-utils azdo update 42 --state Closed --assigned-to dev@example.com
@@ -82,6 +83,21 @@ devops-utils azdo link 42 --kind commit --project MyProject --repo MyRepo --valu
 devops-utils azdo attach 42 ./trace.log
 ```
 
+Pipeline and repository research (read-only):
+
+```bash
+devops-utils azdo definitions --project MyProject --name 'CI*'
+devops-utils azdo builds --project MyProject --branch main --result failed
+devops-utils azdo timeline 1234 --project MyProject     # stages/tasks + errors
+devops-utils azdo logs 1234 --project MyProject          # log ids + line counts
+devops-utils azdo log 1234 7 --project MyProject --start-line 800   # tail
+devops-utils azdo files --project MyProject --repo MyRepo --pattern '*.yml'
+devops-utils azdo code-search "connection pool" --project MyProject
+```
+
+`code-search` uses the Search extension (always available on cloud; on-prem
+needs it installed — `files` is the portable fallback).
+
 The same operations are exposed as MCP tools (`azdo_*`) and framework-agnostic
 agent callables in `devops_utils.agent.tools`, all reading the env vars above.
 
@@ -89,12 +105,13 @@ agent callables in `devops_utils.agent.tools`, all reading the env vars above.
 Set up an agent
 ---------------
 
-`devops-utils setup` installs the bundled skills, wires the `devops-utils-mcp`
-server into an agent's MCP config, and writes an Azure DevOps env scaffold.
-Defaults target Claude Code at user scope (`~/.claude`).
+`devops-utils setup` installs the bundled skills and Claude Code subagents,
+wires the `devops-utils-mcp` server into an agent's MCP config, and writes an
+Azure DevOps env scaffold. Defaults target Claude Code at user scope
+(`~/.claude`).
 
 ```bash
-# Everything, for the current user (skills + MCP server + env scaffold)
+# Everything, for the current user (skills + agents + MCP server + env scaffold)
 devops-utils setup all
 
 # Scope to the current repo (./.claude, ./.mcp.json)
@@ -102,9 +119,17 @@ devops-utils setup all --project
 
 # Individual steps, or an arbitrary directory
 devops-utils setup skills --dest ./agent-skills
+devops-utils setup agents          # ~/.claude/agents/*.md
 devops-utils setup mcp --dest .
 devops-utils setup env
 ```
+
+`setup agents` installs three **read-only** Azure DevOps research subagents
+for Claude Code — `azdo-workitem-analyst` (pending items, assigned-to-me via
+the WIQL `@Me` macro, type/tag filters), `azdo-build-analyst` (definitions,
+run status, failure diagnosis via timeline + log tailing), and
+`azdo-repo-analyst` (repo/file/code search). Writes stay with the main
+assistant, gated by the MCP server's human confirmation.
 
 Use `--force` to overwrite existing files; `setup mcp` merges into any existing
 config without clobbering other servers.

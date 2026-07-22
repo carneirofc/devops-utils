@@ -72,6 +72,24 @@ def skills_cmd(
     _report(written, skipped)
 
 
+@setup.command("agents")
+@_scope_options
+@click.option("--dest", default=None, help="Install into this directory's agents/.")
+def agents_cmd(project: bool, force: bool, dest: str | None) -> None:
+    """Copy the bundled Claude Code subagents into an agents directory.
+
+    Installs the read-only Azure DevOps analyst agents (work items, builds,
+    repos) as <base>/agents/<name>.md — user scope ~/.claude by default,
+    ./.claude with --project.
+    """
+    if dest is not None:
+        base = Path(dest)
+    else:
+        base = Path.cwd() / ".claude" if project else Path.home() / ".claude"
+    written, skipped = install.install_agents(base, force=force)
+    _report(written, skipped)
+
+
 @setup.command("mcp")
 @_scope_options
 @click.option("--dest", default=None, help="Write .mcp.json into this directory.")
@@ -167,9 +185,10 @@ def all_cmd(
     dest: str | None,
     claude_layout: bool,
 ) -> None:
-    """Install skills, wire the MCP server, and write the env scaffold."""
+    """Install skills, agents, wire the MCP server, and write the env scaffold."""
     ctx.invoke(
         skills_cmd, project=project, force=force, dest=dest, claude_layout=claude_layout
     )
+    ctx.invoke(agents_cmd, project=project, force=force, dest=dest)
     ctx.invoke(mcp_cmd, project=project, force=force, dest=dest)
     ctx.invoke(env_cmd, project=project, force=force, dest=dest)

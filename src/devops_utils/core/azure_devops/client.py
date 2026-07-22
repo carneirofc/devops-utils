@@ -131,10 +131,13 @@ class AzureDevOpsClient:
         content: bytes | None = None,
         content_type: str | None = None,
         api_version: str | None = None,
+        base_url: str | None = None,
     ) -> Any:
         """Perform a request and return the parsed JSON body (or ``None``).
 
         ``api-version`` is injected into the query string unless already present.
+        ``base_url`` overrides ``org_url`` for APIs served from a different host
+        (e.g. cloud code search on ``almsearch.dev.azure.com``).
         Raises :class:`AzureDevOpsError` for any non-2xx response.
         """
         httpx = _require_httpx()
@@ -148,7 +151,8 @@ class AzureDevOpsClient:
         elif json is not None:
             headers["Content-Type"] = "application/json"
 
-        url = self._url(path)
+        base = (base_url or self.org_url).rstrip("/")
+        url = f"{base}/{path.lstrip('/')}"
         with httpx.Client(timeout=30.0, transport=self._transport) as http:
             response = http.request(
                 method,

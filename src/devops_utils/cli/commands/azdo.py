@@ -23,11 +23,19 @@ def azdo() -> None:
     """Interact with Azure DevOps work items and repositories."""
 
 
+def _resolve_assignee(assigned_to: str | None, mine: bool) -> str | None:
+    """Combine --assigned-to and --mine (the WIQL @Me macro shortcut)."""
+    if mine and assigned_to:
+        raise click.UsageError("--mine and --assigned-to are mutually exclusive")
+    return "@Me" if mine else assigned_to
+
+
 @azdo.command("repos")
 @click.option("--project", default=None, help="Scope to a single team project.")
-def repos(project: str | None) -> None:
+@click.option("--name", default=None, help="Filter repos by name substring.")
+def repos(project: str | None, name: str | None) -> None:
     """List Git repositories."""
-    _echo(tools.azdo_list_repositories(project))
+    _echo(tools.azdo_list_repositories(project, name_filter=name))
 
 
 @azdo.command("list")
@@ -37,12 +45,20 @@ def repos(project: str | None) -> None:
     "--type", "types", multiple=True, help="Filter by work-item type (repeatable)."
 )
 @click.option("--assigned-to", default=None, help="Filter by assignee.")
+@click.option(
+    "--mine", is_flag=True, help="Only items assigned to me (WIQL @Me macro)."
+)
+@click.option(
+    "--tag", "tags", multiple=True, help="Require a tag (repeatable, AND semantics)."
+)
 @click.option("--top", default=50, show_default=True, help="Max items to return.")
 def list_(
     project: str,
     states: tuple[str, ...],
     types: tuple[str, ...],
     assigned_to: str | None,
+    mine: bool,
+    tags: tuple[str, ...],
     top: int,
 ) -> None:
     """List work items in a project."""
@@ -51,7 +67,8 @@ def list_(
             project,
             states=list(states) or None,
             types=list(types) or None,
-            assigned_to=assigned_to,
+            assigned_to=_resolve_assignee(assigned_to, mine),
+            tags=list(tags) or None,
             top=top,
         )
     )
@@ -64,12 +81,22 @@ def list_(
 @click.option(
     "--type", "types", multiple=True, help="Filter by work-item type (repeatable)."
 )
+@click.option("--assigned-to", default=None, help="Filter by assignee.")
+@click.option(
+    "--mine", is_flag=True, help="Only items assigned to me (WIQL @Me macro)."
+)
+@click.option(
+    "--tag", "tags", multiple=True, help="Require a tag (repeatable, AND semantics)."
+)
 @click.option("--top", default=50, show_default=True, help="Max items to return.")
 def search(
     project: str,
     text: str,
     states: tuple[str, ...],
     types: tuple[str, ...],
+    assigned_to: str | None,
+    mine: bool,
+    tags: tuple[str, ...],
     top: int,
 ) -> None:
     """Text-search work items by title/description."""
@@ -79,6 +106,8 @@ def search(
             text,
             states=list(states) or None,
             types=list(types) or None,
+            assigned_to=_resolve_assignee(assigned_to, mine),
+            tags=list(tags) or None,
             top=top,
         )
     )
@@ -307,6 +336,85 @@ def builds(
 def build(build_id: int, project: str) -> None:
     """Fetch a single build by id."""
     _echo(tools.azdo_get_build(project, build_id))
+
+
+@azdo.command("definitions")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option("--name", default=None, help="Definition name filter; supports *.")
+@click.option("--top", default=25, show_default=True, help="Max definitions.")
+def definitions(project: str, name: str | None, top: int) -> None:
+    """List build (pipeline) definitions."""
+    _echo(tools.azdo_list_build_definitions(project, name=name, top=top))
+
+
+@azdo.command("timeline")
+@click.argument("build_id", type=int)
+@click.option("--project", required=True, help="Team project name or id.")
+def timeline(build_id: int, project: str) -> None:
+    """Show a build's timeline (stages/jobs/tasks, results, issues, log ids)."""
+    _echo(tools.azdo_get_build_timeline(project, build_id))
+
+
+@azdo.command("logs")
+@click.argument("build_id", type=int)
+@click.option("--project", required=True, help="Team project name or id.")
+def logs(build_id: int, project: str) -> None:
+    """List a build's logs (id + line count)."""
+    _echo(tools.azdo_list_build_logs(project, build_id))
+
+
+@azdo.command("log")
+@click.argument("build_id", type=int)
+@click.argument("log_id", type=int)
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option("--start-line", type=int, default=None, help="First line to fetch.")
+@click.option("--end-line", type=int, default=None, help="Last line to fetch.")
+def log(
+    build_id: int,
+    log_id: int,
+    project: str,
+    start_line: int | None,
+    end_line: int | None,
+) -> None:
+    """Print a build log's content (optionally a line range)."""
+    click.echo(
+        tools.azdo_get_build_log(
+            project, build_id, log_id, start_line=start_line, end_line=end_line
+        )
+    )
+
+
+@azdo.command("files")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option("--repo", required=True, help="Repository name or id.")
+@click.option(
+    "--pattern",
+    default="*",
+    show_default=True,
+    help="Path glob, e.g. '*.yml' or 'src/*/pipeline*'.",
+)
+@click.option("--branch", default=None, help="Branch (defaults to repo default).")
+@click.option("--top", default=100, show_default=True, help="Max matches.")
+def files(project: str, repo: str, pattern: str, branch: str | None, top: int) -> None:
+    """Find files in a repository by path glob (no Search extension needed)."""
+    _echo(
+        tools.azdo_find_repo_files(
+            project, repo, path_pattern=pattern, branch=branch, top=top
+        )
+    )
+
+
+@azdo.command("code-search")
+@click.argument("text")
+@click.option("--project", required=True, help="Team project name or id.")
+@click.option("--repo", default=None, help="Scope to a repository.")
+@click.option("--branch", default=None, help="Scope to a branch.")
+@click.option("--top", default=25, show_default=True, help="Max results.")
+def code_search_cmd(
+    text: str, project: str, repo: str | None, branch: str | None, top: int
+) -> None:
+    """Search code content (Search extension; cloud always, on-prem if installed)."""
+    _echo(tools.azdo_code_search(project, text, repo=repo, branch=branch, top=top))
 
 
 @azdo.command("build-tag")

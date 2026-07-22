@@ -12,11 +12,18 @@ from devops_utils.core.azure_devops import (
     add_attachment,
     add_build_tags,
     add_link,
+    code_search,
     comment_on_pull_request,
     create_work_item,
+    find_repo_items,
     get_build,
+    get_build_log,
+    get_build_timeline,
     get_work_item,
+    list_build_logs,
     list_builds,
+    list_definitions,
+    list_work_items,
     remove_link,
     search_work_items,
     set_tags,
@@ -651,3 +658,288 @@ def test_pr_comment_replies_to_existing_thread():
         "commentType": 1,
     }
     assert result == {"thread_id": 147, "comment_id": 2, "status": None}
+
+
+# --------------------------------------------------------------------------- #
+# work-item research filters (tags / @Me)
+# --------------------------------------------------------------------------- #
+def test_list_work_items_tags_and_me_macro():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    list_work_items(
+        _client(handler), "Proj", assigned_to="@Me", tags=["backend", "urgent"]
+    )
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.AssignedTo] = @Me" in wiql
+    assert "'@Me'" not in wiql  # the macro must stay unquoted
+    assert "[System.Tags] CONTAINS 'backend'" in wiql
+    assert "[System.Tags] CONTAINS 'urgent'" in wiql
+
+
+def test_list_work_items_me_macro_case_insensitive():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    list_work_items(_client(handler), "Proj", assigned_to="@me")
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.AssignedTo] = @Me" in wiql
+
+
+def test_list_work_items_literal_assignee_stays_quoted():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    list_work_items(_client(handler), "Proj", assigned_to="dev@contoso.com")
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.AssignedTo] = 'dev@contoso.com'" in wiql
+
+
+def test_search_work_items_supports_assignee_and_tags():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    search_work_items(
+        _client(handler), "Proj", "needle", assigned_to="@Me", tags=["a'b"]
+    )
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.AssignedTo] = @Me" in wiql
+    assert "[System.Tags] CONTAINS 'a''b'" in wiql
+
+
+# --------------------------------------------------------------------------- #
+# build definitions / timeline / logs
+# --------------------------------------------------------------------------- #
+def test_list_definitions_params_and_trim():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": 7,
+                        "name": "CI",
+                        "path": "\\",
+                        "type": "build",
+                        "queueStatus": "enabled",
+                        "_links": {"web": {"href": "http://w"}},
+                    }
+                ]
+            },
+        )
+
+    result = list_definitions(_client(handler), "Proj", name="CI*", top=5)
+    req = reqs[0]
+    assert req.url.path.endswith("/Proj/_apis/build/definitions")
+    assert req.url.params["name"] == "CI*"
+    assert req.url.params["$top"] == "5"
+    assert result == [
+        {
+            "id": 7,
+            "name": "CI",
+            "path": "\\",
+            "type": "build",
+            "queue_status": "enabled",
+            "web_url": "http://w",
+        }
+    ]
+
+
+def test_get_build_timeline_sorts_and_trims():
+    def handler(request):
+        assert request.url.path.endswith("/Proj/_apis/build/builds/9/timeline")
+        return httpx.Response(
+            200,
+            json={
+                "records": [
+                    {
+                        "id": "b",
+                        "order": 2,
+                        "type": "Task",
+                        "name": "Test",
+                        "state": "completed",
+                        "result": "failed",
+                        "log": {"id": 12},
+                        "issues": [{"type": "error", "message": "boom", "data": {}}],
+                    },
+                    {
+                        "id": "a",
+                        "order": 1,
+                        "type": "Stage",
+                        "name": "Build",
+                        "state": "completed",
+                        "result": "succeeded",
+                    },
+                ]
+            },
+        )
+
+    records = get_build_timeline(_client(handler), "Proj", 9)
+    assert [rec["id"] for rec in records] == ["a", "b"]
+    failed = records[1]
+    assert failed["log_id"] == 12
+    assert failed["issues"] == [{"type": "error", "message": "boom"}]
+    assert "_order" not in failed
+
+
+def test_list_build_logs_trims():
+    def handler(request):
+        assert request.url.path.endswith("/Proj/_apis/build/builds/9/logs")
+        return httpx.Response(
+            200, json={"value": [{"id": 1, "lineCount": 250, "type": "Container"}]}
+        )
+
+    assert list_build_logs(_client(handler), "Proj", 9) == [
+        {"id": 1, "line_count": 250}
+    ]
+
+
+def test_get_build_log_line_range_and_text():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, text="line1\nline2", headers={"Content-Type": "text/plain"})
+
+    content = get_build_log(
+        _client(handler), "Proj", 9, 12, start_line=50, end_line=250
+    )
+    req = reqs[0]
+    assert req.url.path.endswith("/Proj/_apis/build/builds/9/logs/12")
+    assert req.url.params["startLine"] == "50"
+    assert req.url.params["endLine"] == "250"
+    assert content == "line1\nline2"
+
+
+def test_get_build_log_json_value_fallback():
+    def handler(request):
+        return httpx.Response(200, json={"count": 2, "value": ["l1", "l2"]})
+
+    assert get_build_log(_client(handler), "Proj", 9, 12) == "l1\nl2"
+
+
+# --------------------------------------------------------------------------- #
+# repo search tiers
+# --------------------------------------------------------------------------- #
+def test_list_repositories_name_filter():
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {"id": "1", "name": "web-api", "project": {"name": "P"}},
+                    {"id": "2", "name": "infra", "project": {"name": "P"}},
+                ]
+            },
+        )
+
+    from devops_utils.core.azure_devops import list_repositories
+
+    names = [r["name"] for r in list_repositories(_client(handler), "P", name_filter="API")]
+    assert names == ["web-api"]
+
+
+def test_find_repo_items_glob_and_top():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {"path": "/", "isFolder": True},
+                    {"path": "/azure-pipelines.yml", "size": 10, "commitId": "c1"},
+                    {"path": "/src/deep/config.yml", "size": 20, "commitId": "c2"},
+                    {"path": "/README.md", "size": 30, "commitId": "c3"},
+                ]
+            },
+        )
+
+    matches = find_repo_items(
+        _client(handler), "Proj", "R", path_pattern="*.yml", branch="dev"
+    )
+    req = reqs[0]
+    assert req.url.path.endswith("/Proj/_apis/git/repositories/R/items")
+    assert req.url.params["recursionLevel"] == "Full"
+    assert req.url.params["versionDescriptor.version"] == "dev"
+    # basename match lets *.yml find nested files too
+    assert [m["path"] for m in matches] == [
+        "azure-pipelines.yml",
+        "src/deep/config.yml",
+    ]
+
+    top1 = find_repo_items(_client(handler), "Proj", "R", path_pattern="*.yml", top=1)
+    assert len(top1) == 1
+
+
+def test_code_search_cloud_uses_almsearch_host():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "path": "/src/app.py",
+                        "repository": {"name": "R"},
+                        "project": {"name": "Proj"},
+                        "matches": {"content": [{"charOffset": 1}, {"charOffset": 9}]},
+                    }
+                ]
+            },
+        )
+
+    results = code_search(_client(handler), "Proj", "needle", repo="R", top=5)
+    req = reqs[0]
+    assert req.url.host == "almsearch.dev.azure.com"
+    assert req.url.path.endswith("/Proj/_apis/search/codesearchresults")
+    body = json.loads(req.content)
+    assert body["searchText"] == "needle"
+    assert body["$top"] == 5
+    assert body["filters"] == {"Project": ["Proj"], "Repository": ["R"]}
+    assert results == [
+        {"path": "src/app.py", "repo": "R", "project": "Proj", "matches": 2}
+    ]
+
+
+def test_code_search_onprem_keeps_collection_url():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"results": []})
+
+    client = AzureDevOpsClient(
+        org_url="https://tfs.corp.local/tfs/DefaultCollection",
+        token="tkn",
+        transport=httpx.MockTransport(handler),
+    )
+    code_search(client, "Proj", "x")
+    assert reqs[0].url.host == "tfs.corp.local"
+    assert "/tfs/DefaultCollection/" in str(reqs[0].url)
+
+
+def test_code_search_404_explains_missing_extension():
+    def handler(request):
+        return httpx.Response(404, text="nope")
+
+    with pytest.raises(AzureDevOpsError, match="Search extension"):
+        code_search(_client(handler), "Proj", "x")

@@ -18,6 +18,7 @@ AZDO_ENV_KEYS = (
 def test_bundled_skills_are_discoverable():
     names = {name for name, _filename, _text in install.iter_bundled_skills()}
     assert "azure-devops-work-items" in names
+    assert "azure-devops-research" in names
     assert "sanitize-manifest" in names
 
 
@@ -93,6 +94,48 @@ def test_setup_force_overwrites(tmp_path):
     assert target.read_text(encoding="utf-8") != "SENTINEL"
 
 
+AGENT_NAMES = ("azdo-workitem-analyst", "azdo-build-analyst", "azdo-repo-analyst")
+
+
+def test_bundled_agents_are_discoverable():
+    names = {name for name, _filename, _text in install.iter_bundled_agents()}
+    assert set(AGENT_NAMES) <= names
+
+
+def test_bundled_agents_are_read_only():
+    write_markers = ("create_work_item", "update_work_item", "comment", "tag_build")
+    for _name, _filename, text in install.iter_bundled_agents():
+        tools_line = next(
+            line for line in text.splitlines() if line.startswith("tools:")
+        )
+        for marker in write_markers:
+            assert marker not in tools_line
+
+
+def test_setup_agents_installs_md_files(tmp_path):
+    result = CliRunner().invoke(cli, ["setup", "agents", "--dest", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    for name in AGENT_NAMES:
+        target = tmp_path / "agents" / f"{name}.md"
+        assert target.exists()
+        assert f"name: {name}" in target.read_text(encoding="utf-8")
+
+
+def test_setup_agents_skips_existing_without_force(tmp_path):
+    target = tmp_path / "agents" / "azdo-build-analyst.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(cli, ["setup", "agents", "--dest", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert target.read_text(encoding="utf-8") == "SENTINEL"
+    assert "skip" in result.output
+    result = CliRunner().invoke(
+        cli, ["setup", "agents", "--dest", str(tmp_path), "--force"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "SENTINEL" not in target.read_text(encoding="utf-8")
+
+
 def test_install_tracker_renders_placeholders(tmp_path):
     written, skipped = install.install_tracker(tmp_path, "Contoso", done_state="Done")
     assert skipped == []
@@ -145,5 +188,7 @@ def test_setup_all_writes_everything(tmp_path):
     result = CliRunner().invoke(cli, ["setup", "all", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert (tmp_path / "azure-devops.md").exists()
+    assert (tmp_path / "azure-devops-research.md").exists()
+    assert (tmp_path / "agents" / "azdo-build-analyst.md").exists()
     assert (tmp_path / ".mcp.json").exists()
     assert (tmp_path / ".env.devops-utils.example").exists()

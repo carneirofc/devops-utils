@@ -76,6 +76,128 @@ def get_build(client: AzureDevOpsClient, project: str, build_id: int) -> dict[st
     return _trim_build(data if isinstance(data, dict) else {})
 
 
+def list_definitions(
+    client: AzureDevOpsClient,
+    project: str,
+    *,
+    name: str | None = None,
+    top: int = 25,
+) -> list[dict[str, Any]]:
+    """List build (pipeline) definitions in a project.
+
+    Args:
+        name: Optional definition name filter; ``*`` wildcards are supported by
+            the API (e.g. ``CI*``).
+        top: Maximum number of definitions to return.
+    """
+    params: dict[str, Any] = {"$top": top}
+    if name:
+        params["name"] = name
+    data = client.request("GET", f"{project}/_apis/build/definitions", params=params)
+    definitions = data.get("value", []) if isinstance(data, dict) else []
+    return [
+        {
+            "id": d.get("id"),
+            "name": d.get("name"),
+            "path": d.get("path"),
+            "type": d.get("type"),
+            "queue_status": d.get("queueStatus"),
+            "web_url": ((d.get("_links") or {}).get("web") or {}).get("href"),
+        }
+        for d in definitions
+    ]
+
+
+def _trim_issue(issue: dict[str, Any]) -> dict[str, Any]:
+    """Shrink a timeline issue to its type (error/warning) and message."""
+    return {"type": issue.get("type"), "message": issue.get("message")}
+
+
+def get_build_timeline(
+    client: AzureDevOpsClient, project: str, build_id: int
+) -> list[dict[str, Any]]:
+    """Fetch a build's timeline: its stages/phases/jobs/tasks with status.
+
+    Each record carries a ``log_id`` (when the step produced a log) that can be
+    passed to :func:`get_build_log`, and ``issues`` with the step's error and
+    warning messages — the fastest way to locate why a run failed.
+
+    Returns:
+        Timeline records sorted by their ``order``, trimmed to ``{id, parent_id,
+        type, name, state, result, log_id, start_time, finish_time, issues}``.
+    """
+    data = client.request(
+        "GET", f"{project}/_apis/build/builds/{build_id}/timeline"
+    )
+    records = data.get("records", []) if isinstance(data, dict) else []
+    trimmed = [
+        {
+            "id": rec.get("id"),
+            "parent_id": rec.get("parentId"),
+            "type": rec.get("type"),
+            "name": rec.get("name"),
+            "state": rec.get("state"),
+            "result": rec.get("result"),
+            "log_id": (rec.get("log") or {}).get("id"),
+            "start_time": rec.get("startTime"),
+            "finish_time": rec.get("finishTime"),
+            "issues": [_trim_issue(i) for i in rec.get("issues") or []],
+            "_order": rec.get("order") or 0,
+        }
+        for rec in records
+    ]
+    trimmed.sort(key=lambda rec: rec["_order"])
+    for rec in trimmed:
+        del rec["_order"]
+    return trimmed
+
+
+def list_build_logs(
+    client: AzureDevOpsClient, project: str, build_id: int
+) -> list[dict[str, Any]]:
+    """List a build's logs as ``{id, line_count}`` entries.
+
+    Use ``line_count`` with :func:`get_build_log`'s ``start_line`` to tail a
+    large log instead of downloading it whole.
+    """
+    data = client.request("GET", f"{project}/_apis/build/builds/{build_id}/logs")
+    logs = data.get("value", []) if isinstance(data, dict) else []
+    return [{"id": log.get("id"), "line_count": log.get("lineCount")} for log in logs]
+
+
+def get_build_log(
+    client: AzureDevOpsClient,
+    project: str,
+    build_id: int,
+    log_id: int,
+    *,
+    start_line: int | None = None,
+    end_line: int | None = None,
+) -> str:
+    """Fetch a build log's content as plain text.
+
+    Args:
+        start_line / end_line: Optional line range. To tail, set ``start_line``
+            to ``line_count - N`` (from :func:`list_build_logs`).
+    """
+    params: dict[str, Any] = {}
+    if start_line is not None:
+        params["startLine"] = start_line
+    if end_line is not None:
+        params["endLine"] = end_line
+    data = client.request(
+        "GET",
+        f"{project}/_apis/build/builds/{build_id}/logs/{log_id}",
+        params=params or None,
+    )
+    if isinstance(data, str):
+        return data
+    # Some servers return {"value": [line, ...]} JSON instead of text.
+    if isinstance(data, dict):
+        return "\n".join(str(line) for line in data.get("value", []))
+    return "" if data is None else str(data)
+
+
 def add_build_tags(
     client: AzureDevOpsClient, project: str, build_id: int, tags: list[str]
 ) -> list[str]:

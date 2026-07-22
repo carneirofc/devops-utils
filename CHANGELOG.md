@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Bundled **Claude Code subagents** for read-only Azure DevOps research,
+  installed by the new `devops-utils setup agents` subcommand (also part of
+  `setup all`): `azdo-workitem-analyst` (work-item status, pending items,
+  assigned-to-me, type/tag filters), `azdo-build-analyst` (pipeline
+  definitions, run status, failure diagnosis), and `azdo-repo-analyst`
+  (repo/file/code search). Sources: `src/devops_utils/agent/agents/*.md`.
+- Build introspection tools across CLI/MCP/agent surfaces:
+  `azdo_list_build_definitions` (`azdo definitions`), `azdo_get_build_timeline`
+  (`azdo timeline` — stages/jobs/tasks with results, error/warning issues, and
+  log ids), `azdo_list_build_logs` (`azdo logs` — log ids + line counts), and
+  `azdo_get_build_log` (`azdo log` — plain-text content with optional
+  `start_line`/`end_line` for tailing large logs).
+- Work-item research filters: `tags` on list and search (AND semantics,
+  repeatable `--tag`), `assigned_to` on search, and the WIQL `@Me` macro —
+  `assigned_to="@Me"` / `--mine` — resolving "assigned to me" server-side
+  without a configured email.
+- Repository search tiers: `name_filter` on `azdo_list_repositories`
+  (`azdo repos --name`), `azdo_find_repo_files` (`azdo files` — path-glob
+  search via the Git Items API, no extension needed), and `azdo_code_search`
+  (`azdo code-search` — content search via the Search extension; the cloud
+  `almsearch` host is derived automatically and servers without the extension
+  get a clear error pointing at the fallback).
+- New skill `azure-devops-research` with read-only research playbooks (my
+  pending items, build failure diagnosis, repo/file/code search) installed by
+  `setup skills`.
+
 ## [0.3.0] - 2026-07-21
 
 ### Added

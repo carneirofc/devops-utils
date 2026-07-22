@@ -394,16 +394,23 @@ def list_work_items(
     states: list[str] | None = None,
     types: list[str] | None = None,
     assigned_to: str | None = None,
+    tags: list[str] | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
-    """List work items in a project, optionally filtered by state/type/assignee."""
+    """List work items in a project, optionally filtered by state/type/assignee/tags.
+
+    ``assigned_to="@Me"`` uses the WIQL ``@Me`` macro, resolving the identity
+    behind the token server-side. Each tag becomes an AND-joined
+    ``[System.Tags] CONTAINS`` clause.
+    """
     clauses = [f"[System.TeamProject] = '{_esc(project)}'"]
     if states:
         clauses.append(_in_clause("System.State", states))
     if types:
         clauses.append(_in_clause("System.WorkItemType", types))
     if assigned_to:
-        clauses.append(f"[System.AssignedTo] = '{_esc(assigned_to)}'")
+        clauses.append(_assigned_clause(assigned_to))
+    clauses.extend(_tag_clauses(tags))
     # WIQL, not SQL; all interpolated values pass through _esc(). nosec B608
     wiql = (
         "SELECT [System.Id] FROM WorkItems WHERE "  # nosec B608
@@ -421,9 +428,15 @@ def search_work_items(
     *,
     states: list[str] | None = None,
     types: list[str] | None = None,
+    assigned_to: str | None = None,
+    tags: list[str] | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
-    """Text-search work items by title/description using WIQL ``CONTAINS``."""
+    """Text-search work items by title/description using WIQL ``CONTAINS``.
+
+    Supports the same ``assigned_to`` (incl. ``@Me``) and ``tags`` filters as
+    :func:`list_work_items`.
+    """
     term = _esc(text)
     clauses = [
         f"[System.TeamProject] = '{_esc(project)}'",
@@ -433,6 +446,9 @@ def search_work_items(
         clauses.append(_in_clause("System.State", states))
     if types:
         clauses.append(_in_clause("System.WorkItemType", types))
+    if assigned_to:
+        clauses.append(_assigned_clause(assigned_to))
+    clauses.extend(_tag_clauses(tags))
     # WIQL, not SQL; all interpolated values pass through _esc(). nosec B608
     wiql = (
         "SELECT [System.Id] FROM WorkItems WHERE "  # nosec B608
@@ -526,6 +542,22 @@ def _trim_relation(relation: dict[str, Any]) -> dict[str, Any]:
 def _esc(value: str) -> str:
     """Escape single quotes for embedding in a WIQL string literal."""
     return value.replace("'", "''")
+
+
+def _assigned_clause(assigned_to: str) -> str:
+    """Build the assignee clause, keeping the ``@Me`` macro unquoted.
+
+    WIQL resolves ``@Me`` to the identity behind the token server-side; quoting
+    it would turn the macro into a literal string and match nothing.
+    """
+    if assigned_to.strip().lower() == "@me":
+        return "[System.AssignedTo] = @Me"
+    return f"[System.AssignedTo] = '{_esc(assigned_to)}'"
+
+
+def _tag_clauses(tags: list[str] | None) -> list[str]:
+    """One AND-joined ``[System.Tags] CONTAINS`` clause per tag."""
+    return [f"[System.Tags] CONTAINS '{_esc(tag)}'" for tag in tags or []]
 
 
 def _in_clause(field: str, values: list[str]) -> str:

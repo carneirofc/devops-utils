@@ -107,6 +107,51 @@ def install_skills(
     return written, skipped
 
 
+def _agents_resource():
+    """Return the ``importlib.resources`` traversable for the agents package."""
+    return files("devops_utils.agent.agents")
+
+
+def iter_bundled_agents() -> list[tuple[str, str, str]]:
+    """List the Claude Code agent files bundled with the package.
+
+    Returns:
+        A list of ``(agent_name, filename, text)`` tuples, sorted by filename.
+        ``agent_name`` comes from the frontmatter ``name:`` (falling back to
+        the file stem).
+    """
+    agents: list[tuple[str, str, str]] = []
+    for entry in _agents_resource().iterdir():
+        if not entry.name.endswith(".md"):
+            continue
+        text = entry.read_text(encoding="utf-8")
+        stem = entry.name[: -len(".md")]
+        agents.append((_skill_name(text, stem), entry.name, text))
+    return sorted(agents, key=lambda a: a[1])
+
+
+def install_agents(dest: Path, force: bool = False) -> tuple[list[Path], list[Path]]:
+    """Copy the bundled Claude Code agents into ``dest/agents/<name>.md``.
+
+    Claude Code discovers subagents as single ``.md`` files in an ``agents/``
+    directory (user scope ``~/.claude/agents``, project scope ``.claude/agents``).
+
+    Args:
+        dest: Base directory to install into (e.g. ``~/.claude``).
+        force: Overwrite existing files instead of skipping them.
+
+    Returns:
+        A ``(written, skipped)`` tuple of destination paths.
+    """
+    written: list[Path] = []
+    skipped: list[Path] = []
+    for name, _filename, text in iter_bundled_agents():
+        target = dest / "agents" / f"{name}.md"
+        result = _write(target, text, force)
+        (written if result is not None else skipped).append(target)
+    return written, skipped
+
+
 def _trackers_resource():
     """Return the ``importlib.resources`` traversable for the tracker templates."""
     return files("devops_utils.agent.trackers")

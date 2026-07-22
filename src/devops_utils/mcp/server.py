@@ -167,11 +167,17 @@ def _build_server():
     # human confirms each mutation before it reaches Azure DevOps.
     for fn in (
         agent_tools.azdo_list_repositories,
+        agent_tools.azdo_find_repo_files,
+        agent_tools.azdo_code_search,
         agent_tools.azdo_list_work_items,
         agent_tools.azdo_search_work_items,
         agent_tools.azdo_get_work_item,
+        agent_tools.azdo_list_build_definitions,
         agent_tools.azdo_list_builds,
         agent_tools.azdo_get_build,
+        agent_tools.azdo_get_build_timeline,
+        agent_tools.azdo_list_build_logs,
+        agent_tools.azdo_get_build_log,
         agent_tools.azdo_tag_build,
         agent_tools.azdo_comment_pull_request,
     ):

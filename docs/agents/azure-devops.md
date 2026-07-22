@@ -33,9 +33,9 @@ callables are unaffected (a human/caller invokes them directly). Implemented in
 
 ## Surfaces
 
-The same fifteen operations are exposed three ways, all reading the env vars above:
+The same operations are exposed three ways, all reading the env vars above:
 
-- **CLI**: `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,unlink,attach,builds,build,build-tag,pr-comment}`
+- **CLI**: `devops-utils azdo {repos,files,code-search,list,search,get,create,update,comment,tag,link,unlink,attach,definitions,builds,build,timeline,logs,log,build-tag,pr-comment}`
 - **MCP tools**: `azdo_*` (run `devops-utils-mcp`)
 - **Agent callables**: `devops_utils.agent.tools.azdo_*`
 
@@ -81,13 +81,44 @@ JSON-Patch `test` op.
 `System.AssignedTo`, `System.Title`, and/or `System.Description` on an existing
 item — state names are process-template-specific (`Closed`/`Done`/`Resolved`).
 
+## Work-item research filters
+
+`list`/`search` (and their `azdo_*` counterparts) filter by state, type,
+assignee, and **tags** (repeatable `--tag`, AND semantics). `--mine` /
+`assigned_to="@Me"` uses the WIQL `@Me` macro — the server resolves the
+identity behind the token, so "assigned to me" needs no configured email.
+"Pending" work is the non-closed states of the process template
+(e.g. `--state New --state Active`).
+
+## Repo search (three tiers)
+
+1. **Repo names**: `azdo repos [--project P] [--name SUBSTR]` /
+   `azdo_list_repositories(project, name_filter=...)`.
+2. **File paths**: `azdo files --project P --repo R --pattern '*.yml'` /
+   `azdo_find_repo_files` — Git Items API glob, works on cloud and on-prem.
+3. **Code content**: `azdo code-search "TEXT" --project P [--repo R]` /
+   `azdo_code_search` — Search extension (cloud always; the almsearch host is
+   derived automatically). On-prem servers without it get a clear error; fall
+   back to tier 2.
+
 ## Builds
 
+- **Definitions**: `azdo definitions --project P [--name 'CI*']` /
+  `azdo_list_build_definitions` lists pipelines as
+  `{id, name, path, type, queue_status, web_url}`.
 - **Query**: `azdo builds --project P [--definition ID] [--branch B] [--status S] [--result R] [--top N]` /
   `azdo_list_builds(project, ...)` lists builds (newest first) as trimmed
   `{id, number, definition, status, result, branch, requested_for, queue_time, finish_time, web_url}`
   dicts; `azdo build <id> --project P` / `azdo_get_build` fetches one. Short
   branch names are expanded to `refs/heads/...`.
+- **Timeline**: `azdo timeline <build-id> --project P` /
+  `azdo_get_build_timeline` returns the run's stages/jobs/tasks with `state`,
+  `result`, error/warning `issues`, and each step's `log_id` — the first stop
+  when diagnosing a failed run.
+- **Logs**: `azdo logs <build-id> --project P` / `azdo_list_build_logs` lists
+  `{id, line_count}`; `azdo log <build-id> <log-id> --project P
+  [--start-line N] [--end-line N]` / `azdo_get_build_log` prints content.
+  Tail big logs (`start_line = line_count - 200`) instead of fetching whole.
 - **Link to a work item**: `azdo link <wi> --kind build --value <build-id>` —
   no `project`/`repo` needed (the artifact URI carries only the build id).
 - **Tag**: `azdo build-tag <build-id> TAG [TAG ...] --project P` /

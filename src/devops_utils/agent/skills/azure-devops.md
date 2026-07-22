@@ -43,9 +43,9 @@ directly).
 
 ## Surfaces
 
-The same fifteen operations are exposed three ways, all reading the env vars above:
+The same operations are exposed three ways, all reading the env vars above:
 
-- **CLI:** `devops-utils azdo {repos,list,search,get,create,update,comment,tag,link,unlink,attach,builds,build,build-tag,pr-comment}`
+- **CLI:** `devops-utils azdo {repos,files,code-search,list,search,get,create,update,comment,tag,link,unlink,attach,definitions,builds,build,timeline,logs,log,build-tag,pr-comment}`
 - **MCP tools:** `azdo_*` — served by `devops-utils-mcp` (requires the `mcp` extra).
 - **Python / agent callables:** `from devops_utils.agent.tools import azdo_*`.
 
@@ -57,9 +57,11 @@ surface-agnostic.
 
 | agent callable | CLI | key typed params |
 | --- | --- | --- |
-| `azdo_list_repositories` | `azdo repos` | `project: str \| None` |
-| `azdo_list_work_items` | `azdo list` | `project: str`, `states/types: list[str] \| None`, `assigned_to`, `top: int` |
-| `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types`, `top` |
+| `azdo_list_repositories` | `azdo repos` | `project: str \| None`, `name_filter: str \| None` |
+| `azdo_find_repo_files` | `azdo files` | `project`, `repo`, `path_pattern: str`, `branch`, `top` |
+| `azdo_code_search` | `azdo code-search` | `project`, `text`, `repo`, `branch`, `top` |
+| `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `top: int` |
+| `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `top` |
 | `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool` |
 | `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent` |
 | `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description` |
@@ -68,8 +70,12 @@ surface-agnostic.
 | `azdo_add_work_item_link` | `azdo link` | `work_item_id`, `kind`, `value`, `project`, `repo`, `comment` |
 | `azdo_remove_work_item_link` | `azdo unlink` | `work_item_id`, `kind`, `value`, `project`, `repo` |
 | `azdo_add_work_item_attachment` | `azdo attach` | `work_item_id`, `file_path`, `comment` |
+| `azdo_list_build_definitions` | `azdo definitions` | `project`, `name` (supports `*`), `top` |
 | `azdo_list_builds` | `azdo builds` | `project`, `definitions: list[int]`, `branch`, `statuses/results: list[str]`, `top` |
 | `azdo_get_build` | `azdo build` | `project: str`, `build_id: int` |
+| `azdo_get_build_timeline` | `azdo timeline` | `project`, `build_id` |
+| `azdo_list_build_logs` | `azdo logs` | `project`, `build_id` |
+| `azdo_get_build_log` | `azdo log` | `project`, `build_id`, `log_id`, `start_line`, `end_line` |
 | `azdo_tag_build` | `azdo build-tag` | `project`, `build_id`, `tags: list[str]` |
 | `azdo_comment_pull_request` | `azdo pr-comment` | `project`, `repo`, `pull_request_id`, `text`, `thread_id` |
 
@@ -81,14 +87,51 @@ work-item op returns a **trimmed** dict (see *Return shape*).
 ### List repositories
 
 ```python
-azdo_list_repositories(project: str | None = None) -> list[dict]
+azdo_list_repositories(
+    project: str | None = None,
+    name_filter: str | None = None,    # case-insensitive substring on repo name
+) -> list[dict]
 ```
 
 `project` optional — omit to list org-wide. Returns
 `{id, name, project, default_branch, web_url}` dicts. Use it to get the `repo`
 name/id needed by commit/PR/branch links.
 
-CLI: `devops-utils azdo repos [--project NAME]`
+CLI: `devops-utils azdo repos [--project NAME] [--name SUBSTR]`
+
+### Find files in a repository
+
+```python
+azdo_find_repo_files(
+    project: str,
+    repo: str,
+    path_pattern: str = "*",           # glob vs path or basename, e.g. "*.yml"
+    branch: str | None = None,         # defaults to the repo default branch
+    top: int = 100,
+) -> list[dict]                        # {path, size, commit, url}
+```
+
+Git Items API — no Search extension needed, works on cloud and on-prem.
+
+CLI: `devops-utils azdo files --project P --repo R [--pattern '*.yml'] [--branch B] [--top N]`
+
+### Search code content
+
+```python
+azdo_code_search(
+    project: str,
+    text: str,                         # code-search syntax ok: def:Foo, ext:yml
+    repo: str | None = None,
+    branch: str | None = None,
+    top: int = 25,
+) -> list[dict]                        # {path, repo, project, matches}
+```
+
+Uses the **Search extension** — always present on cloud
+(`almsearch.dev.azure.com` is derived automatically); on-prem servers without
+the extension get a clear error — fall back to `azdo_find_repo_files`.
+
+CLI: `devops-utils azdo code-search "TEXT" --project P [--repo R] [--branch B] [--top N]`
 
 ### List work items
 
@@ -97,15 +140,19 @@ azdo_list_work_items(
     project: str,
     states: list[str] | None = None,   # e.g. ["Active", "New"]
     types: list[str] | None = None,    # e.g. ["Bug", "Task"]
-    assigned_to: str | None = None,    # email or display name
+    assigned_to: str | None = None,    # email, display name, or "@Me"
+    tags: list[str] | None = None,     # AND semantics: every tag must be present
     top: int = 50,
 ) -> list[dict]
 ```
 
 Backed by a WIQL query ordered by `System.ChangedDate DESC`.
+`assigned_to="@Me"` uses the WIQL macro that resolves the identity behind the
+token — "assigned to me" without knowing the user's email. "Pending" items are
+the non-closed states of the process template (e.g. `["New", "Active"]`).
 
-CLI: `devops-utils azdo list --project NAME [--state S ...] [--type T ...] [--assigned-to WHO] [--top N]`
-(`--state`/`--type` are repeatable.)
+CLI: `devops-utils azdo list --project NAME [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--top N]`
+(`--state`/`--type`/`--tag` are repeatable; `--mine` = `--assigned-to @Me`.)
 
 ### Search work items
 
@@ -115,13 +162,16 @@ azdo_search_work_items(
     text: str,
     states: list[str] | None = None,
     types: list[str] | None = None,
+    assigned_to: str | None = None,    # email, display name, or "@Me"
+    tags: list[str] | None = None,
     top: int = 50,
 ) -> list[dict]
 ```
 
-Matches `text` against title **and** description via WIQL `CONTAINS`.
+Matches `text` against title **and** description via WIQL `CONTAINS`; the
+other filters compose the same way as `azdo_list_work_items`.
 
-CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T ...] [--top N]`
+CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--top N]`
 
 ### Get one work item
 
@@ -283,9 +333,15 @@ exists.
 
 CLI: `devops-utils azdo unlink WORK_ITEM_ID --kind KIND --value V [--project P] [--repo R]`
 
-### Builds (list / get / tag / link)
+### Builds (definitions / list / get / timeline / logs / tag / link)
 
 ```python
+azdo_list_build_definitions(
+    project: str,
+    name: str | None = None,               # name filter, supports * wildcards
+    top: int = 25,
+) -> list[dict]                            # {id, name, path, type, queue_status, web_url}
+
 azdo_list_builds(
     project: str,
     definitions: list[int] | None = None,  # pipeline definition ids
@@ -297,6 +353,17 @@ azdo_list_builds(
 
 azdo_get_build(project: str, build_id: int) -> dict
 
+azdo_get_build_timeline(project: str, build_id: int) -> list[dict]
+# ordered records: {id, parent_id, type, name, state, result, log_id,
+#                   start_time, finish_time, issues}
+
+azdo_list_build_logs(project: str, build_id: int) -> list[dict]  # {id, line_count}
+
+azdo_get_build_log(
+    project: str, build_id: int, log_id: int,
+    start_line: int | None = None, end_line: int | None = None,
+) -> str
+
 azdo_tag_build(project: str, build_id: int, tags: list[str]) -> list[str]
 ```
 
@@ -306,8 +373,18 @@ work item — `azdo_add_work_item_link(wi, "build", "<build-id>")` needs no
 `project`/`repo`. Builds have **no comments**; `azdo_tag_build` (tags) is the
 annotation mechanism and returns the resulting tag list.
 
-CLI: `devops-utils azdo builds --project P [--definition ID ...] [--branch B] [--status S ...] [--result R ...] [--top N]`,
+**Failure diagnosis pattern** (cheapest first): timeline → the `failed`
+records' `issues` usually name the error; if log context is needed, take that
+record's `log_id`, read `line_count` from `azdo_list_build_logs`, and **tail**
+with `azdo_get_build_log(..., start_line=line_count - 200)` rather than
+fetching the whole log.
+
+CLI: `devops-utils azdo definitions --project P [--name 'CI*'] [--top N]`,
+`devops-utils azdo builds --project P [--definition ID ...] [--branch B] [--status S ...] [--result R ...] [--top N]`,
 `devops-utils azdo build BUILD_ID --project P`,
+`devops-utils azdo timeline BUILD_ID --project P`,
+`devops-utils azdo logs BUILD_ID --project P`,
+`devops-utils azdo log BUILD_ID LOG_ID --project P [--start-line N] [--end-line N]`,
 `devops-utils azdo build-tag BUILD_ID TAG [TAG ...] --project P`
 
 ### Comment on a pull request
@@ -398,6 +475,8 @@ tools.azdo_add_work_item_link(
 ## On-prem notes
 
 For maximum Server (on-prem) compatibility the tools avoid preview-only or
-separate-host APIs: comments use the `System.History` field and search uses WIQL
-`CONTAINS` (no Search extension). If an old server rejects the API version,
-lower `AZURE_DEVOPS_API_VERSION` (default `7.1`).
+separate-host APIs: comments use the `System.History` field and work-item
+search uses WIQL `CONTAINS` (no Search extension). The one exception is
+`azdo_code_search`, which needs the Search extension — on servers without it
+the tool errors clearly and `azdo_find_repo_files` is the fallback. If an old
+server rejects the API version, lower `AZURE_DEVOPS_API_VERSION` (default `7.1`).
