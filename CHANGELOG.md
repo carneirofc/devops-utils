@@ -44,3 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mattpocock-style skills use Azure DevOps work items via `devops-utils azdo`
   instead of the default GitHub `gh` CLI. Bundled templates live in
   `src/devops_utils/agent/trackers/`.
+
+### Changed
+
+- CI: bump `actions/checkout@v4` → `@v5` and `astral-sh/setup-uv@v3` → `@v6`
+  across the lint, security and deploy workflows, moving them onto Node 24 and
+  clearing the Node 20 deprecation warnings.
