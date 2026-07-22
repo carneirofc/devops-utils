@@ -47,6 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- CI: bump `actions/checkout@v4` → `@v5` and `astral-sh/setup-uv@v3` → `@v6`
+- CI: bump `actions/checkout@v4` → `@v5` and `astral-sh/setup-uv@v3` → `@v7`
   across the lint, security and deploy workflows, moving them onto Node 24 and
   clearing the Node 20 deprecation warnings.
