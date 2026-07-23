@@ -84,7 +84,10 @@ def find_repo_items(
             continue
         path = (item.get("path") or "").lstrip("/")
         # Match against the full path and the basename so `*.yml` finds nested files.
-        if not (fnmatch(path, path_pattern) or fnmatch(path.rsplit("/", 1)[-1], path_pattern)):
+        if not (
+            fnmatch(path, path_pattern)
+            or fnmatch(path.rsplit("/", 1)[-1], path_pattern)
+        ):
             continue
         matches.append(
             {

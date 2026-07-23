@@ -535,9 +535,7 @@ def azdo_code_search(
     """
     from devops_utils.core.azure_devops import code_search
 
-    return code_search(
-        _azdo_client(), project, text, repo=repo, branch=branch, top=top
-    )
+    return code_search(_azdo_client(), project, text, repo=repo, branch=branch, top=top)
 
 
 def azdo_comment_pull_request(

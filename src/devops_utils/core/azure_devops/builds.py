@@ -126,9 +126,7 @@ def get_build_timeline(
         Timeline records sorted by their ``order``, trimmed to ``{id, parent_id,
         type, name, state, result, log_id, start_time, finish_time, issues}``.
     """
-    data = client.request(
-        "GET", f"{project}/_apis/build/builds/{build_id}/timeline"
-    )
+    data = client.request("GET", f"{project}/_apis/build/builds/{build_id}/timeline")
     records = data.get("records", []) if isinstance(data, dict) else []
     trimmed = [
         {

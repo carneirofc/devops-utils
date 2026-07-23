@@ -126,8 +126,15 @@ def test_wrapper_injects_ctx_param_without_disturbing_others():
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "value,expected",
-    [("1", True), ("true", True), ("YES", True), ("On", True),
-     ("0", False), ("no", False), ("", False)],
+    [
+        ("1", True),
+        ("true", True),
+        ("YES", True),
+        ("On", True),
+        ("0", False),
+        ("no", False),
+        ("", False),
+    ],
 )
 def test_skip_confirmation_matrix(monkeypatch, value, expected):
     monkeypatch.setenv("DEVOPS_UTILS_SKIP_CONFIRMATION", value)
