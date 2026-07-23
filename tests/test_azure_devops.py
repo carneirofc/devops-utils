@@ -814,7 +814,9 @@ def test_get_build_log_line_range_and_text():
 
     def handler(request):
         reqs.append(request)
-        return httpx.Response(200, text="line1\nline2", headers={"Content-Type": "text/plain"})
+        return httpx.Response(
+            200, text="line1\nline2", headers={"Content-Type": "text/plain"}
+        )
 
     content = get_build_log(
         _client(handler), "Proj", 9, 12, start_line=50, end_line=250
@@ -850,7 +852,9 @@ def test_list_repositories_name_filter():
 
     from devops_utils.core.azure_devops import list_repositories
 
-    names = [r["name"] for r in list_repositories(_client(handler), "P", name_filter="API")]
+    names = [
+        r["name"] for r in list_repositories(_client(handler), "P", name_filter="API")
+    ]
     assert names == ["web-api"]
 
 
