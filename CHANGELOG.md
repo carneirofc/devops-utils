@@ -95,6 +95,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- CI: bump `actions/checkout@v4` → `@v5` and `astral-sh/setup-uv@v3` → `@v6`
+- CI: bump `actions/checkout@v4` → `@v5` and `astral-sh/setup-uv@v3` → `@v7`
   across the lint, security and deploy workflows, moving them onto Node 24 and
   clearing the Node 20 deprecation warnings.
+- Pre-commit: bump hooks to match the project toolchain — `pre-commit-hooks`
+  `v4.6.0` → `v6.0.0`, `ruff-pre-commit` `v0.6.9` → `v0.15.22`, `mirrors-mypy`
+  `v1.11.2` → `v2.3.0`, and rename the deprecated `ruff` hook id to
+  `ruff-check`. Aligns local formatting/linting with CI and fixes the version
+  drift that let pre-commit-formatted code fail the CI `ruff format --check`.
