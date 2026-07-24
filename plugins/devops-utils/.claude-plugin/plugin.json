@@ -1,0 +1,17 @@
+{
+  "name": "devops-utils",
+  "description": "Read-only Azure DevOps skills and subagents for work-item, build, and repository research (cloud + on-prem).",
+  "author": {
+    "name": "Cláudio Ferreira Carneiro",
+    "email": "claudiofcarneiro@gmail.com"
+  },
+  "homepage": "https://carneirofc.github.io/devops-utils/",
+  "repository": "https://github.com/carneirofc/devops-utils",
+  "license": "MIT",
+  "keywords": [
+    "azure-devops",
+    "devops",
+    "work-items",
+    "mcp"
+  ]
+}

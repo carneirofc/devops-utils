@@ -67,7 +67,9 @@ artifacts = [
 ]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "README.md", "LICENSE"]
+# Ship the generated Claude Code plugin + marketplace tree so a source
+# distribution can be used with `/plugin marketplace add`.
+include = ["src", "tests", "README.md", "LICENSE", ".claude-plugin", "plugins"]
 
 # ---------------------------------------------------------------------------
 # Lint / format (Ruff) — replaces flake8 + black

@@ -1,0 +1,14 @@
+{
+  "name": "carneirofc",
+  "owner": {
+    "name": "Cláudio Ferreira Carneiro",
+    "email": "claudiofcarneiro@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "devops-utils",
+      "source": "./plugins/devops-utils",
+      "description": "Read-only Azure DevOps skills and subagents (work items, builds, repositories)."
+    }
+  ]
+}

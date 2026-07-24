@@ -130,6 +130,36 @@ def env_cmd(project: bool, force: bool, dest: str | None) -> None:
         click.echo(f"skip   {path} (exists; use --force)")
 
 
+@setup.command("plugin")
+@click.option(
+    "--dest",
+    default=None,
+    help="Repository root to generate the plugin tree into (defaults to cwd).",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrite existing files instead of skipping them.",
+)
+def plugin_cmd(dest: str | None, force: bool) -> None:
+    """Generate the Claude Code plugin + marketplace tree for this repo.
+
+    Lays the bundled skills/agents out as a plugin named ``devops-utils`` so
+    Claude Code lists them namespaced (``devops-utils:azure-devops-research``,
+    ``devops-utils:azdo-workitem-analyst``, …). Writes
+    ``plugins/devops-utils/`` (skills, agents, plugin.json) plus
+    ``.claude-plugin/marketplace.json`` at the repo root. Install with
+    ``/plugin marketplace add carneirofc/devops-utils`` then
+    ``/plugin install devops-utils@carneirofc``.
+
+    The agents' MCP tools still come from ``setup mcp`` + the ``devops-utils-mcp``
+    server (``pip install "devops-utils[mcp]"``); MCP is not bundled in the plugin.
+    """
+    base = Path(dest) if dest is not None else Path.cwd()
+    written, skipped = install.install_plugin(base, force=force)
+    _report(written, skipped)
+
+
 @setup.command("tracker")
 @click.option(
     "--project-name",

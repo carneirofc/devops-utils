@@ -9,7 +9,7 @@ Description
 
 A set of utility tools for DevOps, built around a dependency-free core that is
 exposed through several optional surfaces: a **CLI**, a **Qt UI**, a **TUI**, an
-**MCP server**, and **agent tools**.
+**MCP server**, **agent tools**, and a **Claude Code plugin**.
 
 Requires Python 3.12+.
 
@@ -133,6 +133,36 @@ assistant, gated by the MCP server's human confirmation.
 
 Use `--force` to overwrite existing files; `setup mcp` merges into any existing
 config without clobbering other servers.
+
+
+Use as a Claude Code plugin
+---------------------------
+
+The same skills and subagents also ship as a **Claude Code plugin** named
+`devops-utils`, so Claude Code lists them under a distinguishing namespace —
+`devops-utils:azure-devops-research`, `devops-utils:azdo-workitem-analyst`, and
+so on — instead of bare, unqualified names. Install it from this repo's bundled
+marketplace:
+
+```text
+/plugin marketplace add carneirofc/devops-utils
+/plugin install devops-utils@carneirofc
+/reload-plugins
+```
+
+(`carneirofc/devops-utils` is GitHub shorthand; a local checkout path works too:
+`/plugin marketplace add /path/to/devops-utils`.)
+
+The plugin ships only the skills and agents. Their Azure DevOps **MCP tools**
+(`mcp__devops-utils__azdo_*`) still come from the `devops-utils-mcp` server, so a
+working setup also needs `pip install "devops-utils[mcp]"` and
+`devops-utils setup mcp`. MCP is intentionally not bundled in the plugin: a
+plugin-scoped server would rename those tools and break the agents that call
+them.
+
+The committed plugin tree (`plugins/devops-utils/`, `.claude-plugin/marketplace.json`)
+is generated from the bundled sources; re-run `devops-utils setup plugin --force`
+after changing a skill or agent (a test enforces they stay in sync).
 
 
 Use with mattpocock/skills

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-24
+
+### Added
+
+- **Claude Code plugin packaging.** The bundled skills and subagents now also
+  ship as a plugin named `devops-utils`, so Claude Code lists them namespaced
+  (`devops-utils:azure-devops-research`, `devops-utils:azdo-workitem-analyst`, …)
+  instead of under bare names. A new `devops-utils setup plugin` command
+  generates the committed plugin tree (`plugins/devops-utils/`) and a bundled
+  marketplace (`.claude-plugin/marketplace.json`); install with
+  `/plugin marketplace add carneirofc/devops-utils` then
+  `/plugin install devops-utils@carneirofc`. The MCP server is deliberately not
+  bundled (a plugin-scoped server would rename the `mcp__devops-utils__azdo_*`
+  tools the agents call) — MCP stays wired via `setup mcp`.
+
 ### Changed
 
 - `azdo-workitem-analyst` agent pinned to `model: sonnet` for predictable

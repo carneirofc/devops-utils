@@ -21,6 +21,16 @@ MCP_SERVER_NAME = "devops-utils"
 #: Console script that launches the stdio MCP server (see ``[project.scripts]``).
 MCP_COMMAND = "devops-utils-mcp"
 
+#: Claude Code plugin name. The harness namespaces a plugin's skills/agents as
+#: ``<plugin-name>:<component>``, so with this name the bundled skills/agents list
+#: as ``devops-utils:azure-devops-research``, ``devops-utils:azdo-workitem-analyst``,
+#: etc. — distinguishable at a glance from unrelated skills/agents.
+PLUGIN_NAME = "devops-utils"
+
+#: Marketplace name users add before installing the plugin
+#: (``/plugin install devops-utils@<MARKETPLACE_NAME>``).
+MARKETPLACE_NAME = "carneirofc"
+
 
 def _skills_resource():
     """Return the ``importlib.resources`` traversable for the skills package."""
@@ -261,3 +271,113 @@ def env_template() -> str:
 def write_env_scaffold(path: Path, force: bool = False) -> Path | None:
     """Write the env scaffold to ``path`` (skipped if it exists and not ``force``)."""
     return _write(path, env_template(), force)
+
+
+def plugin_manifest() -> dict[str, object]:
+    """Return the ``.claude-plugin/plugin.json`` contents for the bundled plugin.
+
+    The plugin name drives Claude Code's namespacing: skills and agents shipped
+    under it list as ``devops-utils:<component>`` (see :data:`PLUGIN_NAME`). The
+    MCP server is intentionally *not* declared here — a plugin-bundled MCP server
+    is re-scoped to ``mcp__plugin_<plugin>_<server>__<tool>``, which would break
+    the agents' ``tools:`` frontmatter that targets ``mcp__devops-utils__azdo_*``.
+    MCP stays wired via :func:`merge_mcp_config` / ``setup mcp`` instead.
+
+    ``version`` is deliberately omitted (it is optional): the package uses VCS-derived
+    versioning, so a value here would change on every commit and make the committed
+    manifest churn and drift from a regeneration.
+    """
+    return {
+        "name": PLUGIN_NAME,
+        "description": (
+            "Read-only Azure DevOps skills and subagents for work-item, build, "
+            "and repository research (cloud + on-prem)."
+        ),
+        "author": {
+            "name": "Cláudio Ferreira Carneiro",
+            "email": "claudiofcarneiro@gmail.com",
+        },
+        "homepage": "https://carneirofc.github.io/devops-utils/",
+        "repository": "https://github.com/carneirofc/devops-utils",
+        "license": "MIT",
+        "keywords": ["azure-devops", "devops", "work-items", "mcp"],
+    }
+
+
+def marketplace_manifest() -> dict[str, object]:
+    """Return the ``.claude-plugin/marketplace.json`` contents for the repo.
+
+    Declares a single-plugin marketplace whose ``source`` is the relative path
+    ``./plugins/devops-utils`` (Claude Code resolves it from the marketplace root,
+    i.e. the repo root). Users install with::
+
+        /plugin marketplace add carneirofc/devops-utils
+        /plugin install devops-utils@carneirofc
+    """
+    return {
+        "name": MARKETPLACE_NAME,
+        "owner": {
+            "name": "Cláudio Ferreira Carneiro",
+            "email": "claudiofcarneiro@gmail.com",
+        },
+        "plugins": [
+            {
+                "name": PLUGIN_NAME,
+                "source": f"./plugins/{PLUGIN_NAME}",
+                "description": (
+                    "Read-only Azure DevOps skills and subagents "
+                    "(work items, builds, repositories)."
+                ),
+            }
+        ],
+    }
+
+
+def _write_json(path: Path, data: dict[str, object], force: bool) -> Path | None:
+    """Write ``data`` as pretty UTF-8 JSON (skipped if it exists sans ``force``)."""
+    return _write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n", force)
+
+
+def install_plugin(
+    repo_root: Path, force: bool = False
+) -> tuple[list[Path], list[Path]]:
+    """Generate the Claude Code plugin + marketplace tree under ``repo_root``.
+
+    Lays the bundled skills/agents out where Claude Code discovers them for a
+    plugin named :data:`PLUGIN_NAME`, and writes the two manifests:
+
+    - ``repo_root/plugins/devops-utils/skills/<name>/SKILL.md`` (via
+      :func:`install_skills` with the ``"claude"`` layout)
+    - ``repo_root/plugins/devops-utils/agents/<name>.md`` (via
+      :func:`install_agents`)
+    - ``repo_root/plugins/devops-utils/.claude-plugin/plugin.json``
+    - ``repo_root/.claude-plugin/marketplace.json``
+
+    The skill/agent markdown is copied byte-for-byte from the bundled sources;
+    the ``<plugin>:<name>`` namespace is derived by Claude Code from this layout,
+    so no frontmatter rewriting is needed.
+
+    Args:
+        repo_root: Repository root to generate the plugin tree into.
+        force: Overwrite existing files instead of skipping them.
+
+    Returns:
+        A ``(written, skipped)`` tuple of destination paths.
+    """
+    plugin_root = repo_root / "plugins" / PLUGIN_NAME
+
+    written: list[Path] = []
+    skipped: list[Path] = []
+    for install in (install_skills, install_agents):
+        w, s = install(plugin_root, force=force)
+        written.extend(w)
+        skipped.extend(s)
+
+    for path, data in (
+        (plugin_root / ".claude-plugin" / "plugin.json", plugin_manifest()),
+        (repo_root / ".claude-plugin" / "marketplace.json", marketplace_manifest()),
+    ):
+        result = _write_json(path, data, force)
+        (written if result is not None else skipped).append(path)
+
+    return written, skipped
