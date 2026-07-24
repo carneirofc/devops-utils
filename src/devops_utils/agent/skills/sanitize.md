@@ -27,6 +27,39 @@ pass through unchanged, and document order is preserved.
 - **Input:** a string containing one or more Kubernetes YAML documents.
 - **Output:** the same documents serialized back to YAML, with Secret values masked.
 
+## Worked example
+
+**Input** (`secret.yml`):
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+stringData:
+  username: admin
+  password: hunter2
+```
+
+**CLI:** `devops-utils sanitize secret.yml -o -`
+
+**Output** (PyYAML re-serializes with sorted keys):
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+stringData:
+  password: '***secret_hidden**'
+  username: '***secret_hidden**'
+type: Opaque
+```
+
+A `ConfigMap` or other non-`Secret` document in the same file stream passes
+through byte-for-byte unchanged.
+
 ## Notes
 
 - Masking is one-way; the original secret values cannot be recovered from the output.

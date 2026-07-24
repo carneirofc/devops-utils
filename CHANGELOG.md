@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `azdo-workitem-analyst` agent pinned to `model: sonnet` for predictable
+  work-item research behavior regardless of the main conversation's model.
+- Expanded the `azure-devops-research` and `sanitize-manifest` skills with
+  concrete worked examples (CLI + Python calls with realistic inputs/outputs)
+  to match the completeness of the `azure-devops-work-items` skill.
+
 ## [0.4.0] - 2026-07-22
 
 ### Added

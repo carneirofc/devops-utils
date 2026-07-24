@@ -25,6 +25,36 @@ of the main conversation.
   `New/Active`, Basic `To Do/Doing`, Scrum `New/Approved/Committed`. Unknown
   template? Query once without a state filter and read the states that appear.
 
+### Worked example: my pending bugs tagged urgent
+
+**CLI**
+
+```bash
+devops-utils azdo list --project Contoso --mine \
+  --state Active --state New --type Bug --tag urgent
+```
+
+**Python / agent**
+
+```python
+from devops_utils.agent import tools
+
+items = tools.azdo_list_work_items(
+    "Contoso",
+    assigned_to="@Me",
+    states=["Active", "New"],
+    types=["Bug"],
+    tags=["urgent"],
+)
+# => [{"id": 1421, "type": "Bug", "title": "Login page 500s under load",
+#      "state": "Active", "assigned_to": "dev@contoso.com",
+#      "tags": "urgent; regression", "url": "https://..."}]
+```
+
+Report the count first, then id/title/state per item — never mutate from
+here; route any create/update/comment/tag through the write tools (MCP
+elicitation-gated) instead.
+
 ## Filter by type and tags
 
 - `types=["Bug"]` etc.; `tags=["backend", "urgent"]` has AND semantics (every
