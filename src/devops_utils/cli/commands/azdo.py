@@ -49,6 +49,29 @@ def _resolve_assignee(assigned_to: str | None, mine: bool) -> str | None:
     return "@Me" if mine else assigned_to
 
 
+_FIELD_OPTION = click.option(
+    "--field",
+    "field_pairs",
+    multiple=True,
+    metavar="NAME=VALUE",
+    help="Set a custom/extra field by reference name (repeatable), "
+    "e.g. --field Custom.RiskLevel=High.",
+)
+
+
+def _parse_fields(pairs: tuple[str, ...]) -> dict[str, str] | None:
+    """Turn repeated ``NAME=VALUE`` strings into a fields dict."""
+    if not pairs:
+        return None
+    fields: dict[str, str] = {}
+    for pair in pairs:
+        name, sep, value = pair.partition("=")
+        if not sep:
+            raise click.UsageError(f"--field must be NAME=VALUE, got {pair!r}")
+        fields[name] = value
+    return fields
+
+
 @azdo.command("repos")
 @click.option("--project", default=None, help="Scope to a single team project.")
 @click.option("--name", default=None, help="Filter repos by name substring.")
@@ -70,6 +93,14 @@ def repos(project: str | None, name: str | None) -> None:
 @click.option(
     "--tag", "tags", multiple=True, help="Require a tag (repeatable, AND semantics)."
 )
+@click.option(
+    "--area-path", default=None, help="Filter by area path (includes sub-areas)."
+)
+@click.option(
+    "--iteration-path",
+    default=None,
+    help="Filter by iteration/sprint path (includes sub-iterations).",
+)
 @click.option("--top", default=50, show_default=True, help="Max items to return.")
 def list_(
     project: str,
@@ -78,6 +109,8 @@ def list_(
     assigned_to: str | None,
     mine: bool,
     tags: tuple[str, ...],
+    area_path: str | None,
+    iteration_path: str | None,
     top: int,
 ) -> None:
     """List work items in a project."""
@@ -88,6 +121,8 @@ def list_(
             types=list(types) or None,
             assigned_to=_resolve_assignee(assigned_to, mine),
             tags=list(tags) or None,
+            area_path=area_path,
+            iteration_path=iteration_path,
             top=top,
         )
     )
@@ -107,6 +142,14 @@ def list_(
 @click.option(
     "--tag", "tags", multiple=True, help="Require a tag (repeatable, AND semantics)."
 )
+@click.option(
+    "--area-path", default=None, help="Filter by area path (includes sub-areas)."
+)
+@click.option(
+    "--iteration-path",
+    default=None,
+    help="Filter by iteration/sprint path (includes sub-iterations).",
+)
 @click.option("--top", default=50, show_default=True, help="Max items to return.")
 def search(
     project: str,
@@ -116,6 +159,8 @@ def search(
     assigned_to: str | None,
     mine: bool,
     tags: tuple[str, ...],
+    area_path: str | None,
+    iteration_path: str | None,
     top: int,
 ) -> None:
     """Text-search work items by title/description."""
@@ -127,6 +172,8 @@ def search(
             types=list(types) or None,
             assigned_to=_resolve_assignee(assigned_to, mine),
             tags=list(tags) or None,
+            area_path=area_path,
+            iteration_path=iteration_path,
             top=top,
         )
     )
@@ -158,6 +205,7 @@ def get(work_item_id: int, relations: bool) -> None:
 @click.option(
     "--parent", type=int, default=None, help="Parent work-item id to create under."
 )
+@_FIELD_OPTION
 @_YES_OPTION
 @_DRY_RUN_OPTION
 def create(
@@ -170,10 +218,12 @@ def create(
     iteration_path: str | None,
     assigned_to: str | None,
     parent: int | None,
+    field_pairs: tuple[str, ...],
     yes: bool,
     dry_run: bool,
 ) -> None:
     """Create a work item."""
+    fields = _parse_fields(field_pairs)
     if not _confirm_or_dry_run(
         {
             "action": "create",
@@ -186,6 +236,7 @@ def create(
             "iteration_path": iteration_path,
             "assigned_to": assigned_to,
             "parent": parent,
+            "fields": fields,
         },
         yes=yes,
         dry_run=dry_run,
@@ -202,6 +253,7 @@ def create(
             iteration_path=iteration_path,
             assigned_to=assigned_to,
             parent=parent,
+            fields=fields,
         )
     )
 
@@ -260,6 +312,9 @@ def tag(
 )
 @click.option("--title", default=None, help="New title.")
 @click.option("--description", default=None, help="New HTML description.")
+@click.option("--area-path", default=None, help="New area path.")
+@click.option("--iteration-path", default=None, help="New iteration/sprint path.")
+@_FIELD_OPTION
 @_YES_OPTION
 @_DRY_RUN_OPTION
 def update(
@@ -268,13 +323,26 @@ def update(
     assigned_to: str | None,
     title: str | None,
     description: str | None,
+    area_path: str | None,
+    iteration_path: str | None,
+    field_pairs: tuple[str, ...],
     yes: bool,
     dry_run: bool,
 ) -> None:
-    """Update a work item's state, assignee, title, or description."""
-    if state is None and assigned_to is None and title is None and description is None:
+    """Update a work item's state, assignee, title, description, area, iteration, or custom fields."""
+    fields = _parse_fields(field_pairs)
+    if (
+        state is None
+        and assigned_to is None
+        and title is None
+        and description is None
+        and area_path is None
+        and iteration_path is None
+        and fields is None
+    ):
         raise click.UsageError(
-            "give at least one of --state/--assigned-to/--title/--description"
+            "give at least one of --state/--assigned-to/--title/--description/"
+            "--area-path/--iteration-path/--field"
         )
     if not _confirm_or_dry_run(
         {
@@ -284,6 +352,9 @@ def update(
             "assigned_to": assigned_to,
             "title": title,
             "description": description,
+            "area_path": area_path,
+            "iteration_path": iteration_path,
+            "fields": fields,
         },
         yes=yes,
         dry_run=dry_run,
@@ -296,6 +367,9 @@ def update(
             assigned_to=assigned_to,
             title=title,
             description=description,
+            area_path=area_path,
+            iteration_path=iteration_path,
+            fields=fields,
         )
     )
 

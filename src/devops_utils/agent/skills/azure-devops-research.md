@@ -64,6 +64,25 @@ elicitation-gated) instead.
 - Drill in with `azdo_get_work_item(id, relations=True)` to see parent/child
   items and linked commits/PRs/branches/builds.
 
+## Filter by team (area) and sprint (iteration)
+
+`area_path`/`iteration_path` on `azdo_list_work_items` and
+`azdo_search_work_items` scope a query to a team/component or a sprint. Both
+match the given node **and everything nested under it** (WIQL `UNDER`), so
+`area_path="Contoso\\Payments"` also covers `Contoso\Payments\Checkout`.
+
+```bash
+# what the Payments team has open this sprint
+devops-utils azdo list --project Contoso \
+  --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3' \
+  --state Active --state New
+```
+
+Paths are backslash-separated and rooted at the project name. Don't guess them
+— run one unfiltered query and read the paths off real items, or ask the user.
+A wrong path returns an empty list, which reads the same as "nothing pending";
+say which path you filtered on when reporting an empty result.
+
 ## Build status and failure diagnosis
 
 1. Find the pipeline: `azdo_list_build_definitions(project, name="CI*")`.

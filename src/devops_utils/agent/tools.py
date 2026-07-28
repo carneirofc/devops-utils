@@ -60,6 +60,8 @@ def azdo_list_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
     """List work items in a project, filtered by state/type/assignee/tags.
@@ -73,6 +75,10 @@ def azdo_list_work_items(
             to use the WIQL macro that resolves the authenticated identity —
             i.e. "assigned to me" without knowing the user's email.
         tags: Optional tags; each must be present (AND semantics).
+        area_path: Optional Azure Boards area path (e.g. ``Project\\Team``);
+            matches that node and everything under it.
+        iteration_path: Optional Azure Boards iteration/sprint path (e.g.
+            ``Project\\Sprint 3``); matches that node and everything under it.
         top: Maximum number of items to return.
 
     Returns:
@@ -87,6 +93,8 @@ def azdo_list_work_items(
         types=types,
         assigned_to=assigned_to,
         tags=tags,
+        area_path=area_path,
+        iteration_path=iteration_path,
         top=top,
     )
 
@@ -98,6 +106,8 @@ def azdo_search_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
     """Text-search work items by title/description within a project.
@@ -109,6 +119,10 @@ def azdo_search_work_items(
         types: Optional work-item types.
         assigned_to: Optional assignee; ``"@Me"`` means the authenticated user.
         tags: Optional tags; each must be present (AND semantics).
+        area_path: Optional Azure Boards area path; matches that node and
+            everything under it.
+        iteration_path: Optional Azure Boards iteration/sprint path; matches
+            that node and everything under it.
         top: Maximum number of items to return.
 
     Returns:
@@ -124,6 +138,8 @@ def azdo_search_work_items(
         types=types,
         assigned_to=assigned_to,
         tags=tags,
+        area_path=area_path,
+        iteration_path=iteration_path,
         top=top,
     )
 
@@ -155,6 +171,7 @@ def azdo_create_work_item(
     iteration_path: str | None = None,
     assigned_to: str | None = None,
     parent: int | None = None,
+    fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a work item.
 
@@ -168,6 +185,10 @@ def azdo_create_work_item(
         assigned_to: Optional assignee (email or display name).
         parent: Optional parent work-item id; creates the item directly under
             it in the hierarchy (e.g. a Task under a User Story).
+        fields: Optional extra/custom fields as ``{reference_name: value}``,
+            e.g. ``{"Custom.RiskLevel": "High"}``, for process- or org-specific
+            fields not covered by the named args above. Use the field's
+            reference name (not its display label).
 
     Returns:
         The created work item (trimmed).
@@ -185,6 +206,7 @@ def azdo_create_work_item(
         iteration_path=iteration_path,
         assigned_to=assigned_to,
         parent=parent,
+        fields=fields,
     )
 
 
@@ -227,6 +249,9 @@ def azdo_update_work_item(
     assigned_to: str | None = None,
     title: str | None = None,
     description: str | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
+    fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Update mutable fields of an existing work item.
 
@@ -237,6 +262,13 @@ def azdo_update_work_item(
         assigned_to: New assignee (email or display name).
         title: New title.
         description: New description (HTML).
+        area_path: New Azure Boards area path (e.g. ``Project\\Team``).
+        iteration_path: New Azure Boards iteration/sprint path (e.g.
+            ``Project\\Sprint 3``).
+        fields: Optional extra/custom fields as ``{reference_name: value}``,
+            e.g. ``{"Custom.RiskLevel": "High"}``, for process- or org-specific
+            fields not covered by the named args above. Use the field's
+            reference name (not its display label).
 
     Returns:
         The updated work item (trimmed).
@@ -250,6 +282,9 @@ def azdo_update_work_item(
         assigned_to=assigned_to,
         title=title,
         description=description,
+        area_path=area_path,
+        iteration_path=iteration_path,
+        fields=fields,
     )
 
 

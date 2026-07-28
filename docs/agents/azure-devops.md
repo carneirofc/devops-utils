@@ -88,17 +88,39 @@ JSON-Patch `test` op.
   `hyperlink`/`attachment`/artifact kinds carry the URL.
 
 `update` (`azdo update` / `azdo_update_work_item`) changes `System.State`,
-`System.AssignedTo`, `System.Title`, and/or `System.Description` on an existing
-item — state names are process-template-specific (`Closed`/`Done`/`Resolved`).
+`System.AssignedTo`, `System.Title`, `System.Description`, `System.AreaPath`,
+and/or `System.IterationPath` on an existing item — state names are
+process-template-specific (`Closed`/`Done`/`Resolved`).
+
+## Area path / iteration path
+
+`create`, `update`, `list`, and `search` all take `--area-path` /
+`--iteration-path` (`area_path` / `iteration_path` on the `azdo_*` tools).
+On `create`/`update` they set `System.AreaPath`/`System.IterationPath`
+directly. On `list`/`search` they *filter*, using WIQL `UNDER` — matching the
+given node and everything nested under it in the Azure Boards area/iteration
+tree, e.g. `--area-path 'MyProject\Team A'` also matches
+`MyProject\Team A\Sub-team`.
+
+## Custom fields
+
+`create` and `update` (CLI and `azdo_*` tools) also take arbitrary process- or
+org-specific fields via repeatable `--field NAME=VALUE` (CLI) or a `fields`
+dict (`azdo_create_work_item`/`azdo_update_work_item`), e.g.
+`--field Custom.RiskLevel=High` or `fields={"Custom.RiskLevel": "High"}`. Use
+the field's **reference name**, not its display label — reference names are
+process/org specific, so check the target project's process configuration.
+`fields` is applied after the named args, so a key that targets e.g.
+`System.AreaPath` wins over `--area-path`.
 
 ## Work-item research filters
 
 `list`/`search` (and their `azdo_*` counterparts) filter by state, type,
-assignee, and **tags** (repeatable `--tag`, AND semantics). `--mine` /
-`assigned_to="@Me"` uses the WIQL `@Me` macro — the server resolves the
-identity behind the token, so "assigned to me" needs no configured email.
-"Pending" work is the non-closed states of the process template
-(e.g. `--state New --state Active`).
+assignee, area/iteration path, and **tags** (repeatable `--tag`, AND
+semantics). `--mine` / `assigned_to="@Me"` uses the WIQL `@Me` macro — the
+server resolves the identity behind the token, so "assigned to me" needs no
+configured email. "Pending" work is the non-closed states of the process
+template (e.g. `--state New --state Active`).
 
 ## Repo search (three tiers)
 

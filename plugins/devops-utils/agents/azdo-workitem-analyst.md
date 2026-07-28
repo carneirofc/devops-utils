@@ -27,6 +27,12 @@ with a missing-env-var error, report that instead of retrying.
 - **By type**: `types=["Bug"]`, `["Task"]`, `["User Story"]`, etc.
 - **By tags**: `tags=["backend", "urgent"]` — AND semantics, every tag must be
   present.
+- **By team / sprint**: `area_path="Contoso\\Payments"` (team or component) and
+  `iteration_path="Contoso\\Sprint 3"` (sprint). Both match the given node
+  **and everything under it**, so a parent area covers its sub-areas. Paths are
+  backslash-separated and rooted at the project name — don't guess them; read
+  `area_path`/`iteration_path` off an unfiltered result first. A wrong path
+  returns an empty list, so always say which path you filtered on.
 - **Text search**: `azdo_search_work_items` matches title/description with
   WIQL CONTAINS; combine with the same filters.
 - **Detail / relations**: `azdo_get_work_item(id, relations=True)` returns
@@ -36,7 +42,8 @@ with a missing-env-var error, report that instead of retrying.
 ## Reporting
 
 - Keep `top` modest (default 50 is usually plenty); results are already trimmed
-  to `{id, type, title, state, assigned_to, tags, url}`.
+  to `{id, type, title, state, assigned_to, tags, area_path, iteration_path,
+  url}`.
 - Summarize: counts by state/type/assignee first, then the notable items with
   id, title, and state. Include work-item ids so the user can act on them.
 - State clearly which filters produced the result set.

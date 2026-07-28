@@ -26,20 +26,26 @@ secret never flows through tool arguments or logs (see
 | `AZURE_DEVOPS_TOKEN` | yes | Bearer token or PAT |
 | `AZURE_DEVOPS_AUTH_SCHEME` | no | `bearer` (default) → `Authorization: Bearer`; `pat` → `Authorization: Basic base64(":"+token)` |
 | `AZURE_DEVOPS_API_VERSION` | no | Default `7.1`; lower it for older on-prem servers |
-| `DEVOPS_UTILS_SKIP_CONFIRMATION` | no | Truthy (`1`/`true`/`yes`/`on`) bypasses the MCP work-item write confirmation for unattended automation (see *Human-in-the-loop*) |
+| `DEVOPS_UTILS_SKIP_CONFIRMATION` | no | Truthy (`1`/`true`/`yes`/`on`) bypasses the write confirmation on both the MCP server and the CLI, for unattended automation (see *Human-in-the-loop*) |
 
-## Human-in-the-loop (MCP work-item writes)
+## Human-in-the-loop (writes)
 
-On the **MCP server** only, the seven work-item **write** tools —
-`azdo_create_work_item`, `azdo_comment_work_item`, `azdo_set_work_item_tags`,
-`azdo_update_work_item`, `azdo_add_work_item_link`, `azdo_remove_work_item_link`,
-`azdo_add_work_item_attachment` — prompt for human approval via MCP
-**elicitation** before mutating Azure DevOps. Declining returns a `cancelled`
-status and writes nothing. If the client can't prompt (elicitation unsupported /
-non-interactive) the write is **blocked** unless `DEVOPS_UTILS_SKIP_CONFIRMATION`
-is truthy. Read tools, `azdo_tag_build`, and `azdo_comment_pull_request` are not
-gated; the CLI and Python callables are unaffected (a human/caller drives them
-directly).
+All **nine write tools** — `azdo_create_work_item`, `azdo_comment_work_item`,
+`azdo_set_work_item_tags`, `azdo_update_work_item`, `azdo_add_work_item_link`,
+`azdo_remove_work_item_link`, `azdo_add_work_item_attachment`,
+`azdo_tag_build`, `azdo_comment_pull_request` — preview the pending change and
+require confirmation before mutating Azure DevOps. Read tools are not gated.
+
+- **MCP server:** approval via MCP **elicitation**. Declining returns a
+  `cancelled` status and writes nothing. If the client can't prompt
+  (elicitation unsupported / non-interactive) the write is **blocked** unless
+  `DEVOPS_UTILS_SKIP_CONFIRMATION` is truthy.
+- **CLI:** the equivalent commands (`create`, `comment`, `tag`, `update`,
+  `link`, `unlink`, `attach`, `build-tag`, `pr-comment`) print the pending
+  change and prompt. `--yes`/`-y` skips the prompt, `--dry-run` previews
+  without applying, and `DEVOPS_UTILS_SKIP_CONFIRMATION` also skips it.
+- **Python callables** (`devops_utils.agent.tools`) are ungated — the caller
+  drives them directly.
 
 ## Surfaces
 
@@ -60,11 +66,11 @@ surface-agnostic.
 | `azdo_list_repositories` | `azdo repos` | `project: str \| None`, `name_filter: str \| None` |
 | `azdo_find_repo_files` | `azdo files` | `project`, `repo`, `path_pattern: str`, `branch`, `top` |
 | `azdo_code_search` | `azdo code-search` | `project`, `text`, `repo`, `branch`, `top` |
-| `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `top: int` |
-| `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `top` |
+| `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `area_path`, `iteration_path`, `top: int` |
+| `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `area_path`, `iteration_path`, `top` |
 | `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool` |
-| `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent` |
-| `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description` |
+| `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent`, `fields: dict` |
+| `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description`, `area_path`, `iteration_path`, `fields: dict` |
 | `azdo_comment_work_item` | `azdo comment` | `work_item_id: int`, `text: str` |
 | `azdo_set_work_item_tags` | `azdo tag` | `work_item_id`, `tags: list[str]`, `mode: "add" \| "replace"` |
 | `azdo_add_work_item_link` | `azdo link` | `work_item_id`, `kind`, `value`, `project`, `repo`, `comment` |
@@ -142,6 +148,8 @@ azdo_list_work_items(
     types: list[str] | None = None,    # e.g. ["Bug", "Task"]
     assigned_to: str | None = None,    # email, display name, or "@Me"
     tags: list[str] | None = None,     # AND semantics: every tag must be present
+    area_path: str | None = None,      # matches this node AND everything under it
+    iteration_path: str | None = None, # matches this node AND everything under it
     top: int = 50,
 ) -> list[dict]
 ```
@@ -150,8 +158,10 @@ Backed by a WIQL query ordered by `System.ChangedDate DESC`.
 `assigned_to="@Me"` uses the WIQL macro that resolves the identity behind the
 token — "assigned to me" without knowing the user's email. "Pending" items are
 the non-closed states of the process template (e.g. `["New", "Active"]`).
+`area_path`/`iteration_path` filter with WIQL `UNDER` — see
+*Area path / iteration path*.
 
-CLI: `devops-utils azdo list --project NAME [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--top N]`
+CLI: `devops-utils azdo list --project NAME [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--area-path P] [--iteration-path P] [--top N]`
 (`--state`/`--type`/`--tag` are repeatable; `--mine` = `--assigned-to @Me`.)
 
 ### Search work items
@@ -164,6 +174,8 @@ azdo_search_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,    # email, display name, or "@Me"
     tags: list[str] | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
     top: int = 50,
 ) -> list[dict]
 ```
@@ -171,7 +183,7 @@ azdo_search_work_items(
 Matches `text` against title **and** description via WIQL `CONTAINS`; the
 other filters compose the same way as `azdo_list_work_items`.
 
-CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--top N]`
+CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--area-path P] [--iteration-path P] [--top N]`
 
 ### Get one work item
 
@@ -195,15 +207,16 @@ azdo_create_work_item(
     title: str,
     description: str | None = None,    # HTML
     tags: list[str] | None = None,     # see "Tags"
-    area_path: str | None = None,
+    area_path: str | None = None,      # see "Area path / iteration path"
     iteration_path: str | None = None,
     assigned_to: str | None = None,    # see "Assigning users"
     parent: int | None = None,         # create directly under this work item
+    fields: dict | None = None,        # see "Custom fields"
 ) -> dict
 ```
 
-CLI: `devops-utils azdo create --project NAME --type TYPE --title "T" [--description H] [--tag X ...] [--area-path P] [--iteration-path P] [--assigned-to WHO] [--parent ID]`
-(`--tag` is repeatable.)
+CLI: `devops-utils azdo create --project NAME --type TYPE --title "T" [--description H] [--tag X ...] [--area-path P] [--iteration-path P] [--assigned-to WHO] [--parent ID] [--field NAME=VALUE ...]`
+(`--tag` and `--field` are repeatable.)
 
 **Work-item type** — `work_item_type` is a free-form string sent as
 `$WorkItemType` to the REST API; the valid set depends on the project's process
@@ -213,7 +226,7 @@ template. Common values: `Bug`, `Task`, `User Story`, `Feature`, `Epic`,
 error, list an existing item with `azdo_list_work_items` to see the `type`
 values the project actually uses.
 
-### Update a work item (state / assignee / title / description)
+### Update a work item (state / assignee / title / description / area / iteration / custom)
 
 ```python
 azdo_update_work_item(
@@ -222,16 +235,70 @@ azdo_update_work_item(
     assigned_to: str | None = None,    # email or display name
     title: str | None = None,
     description: str | None = None,    # HTML
+    area_path: str | None = None,      # move between Boards areas
+    iteration_path: str | None = None, # move between sprints
+    fields: dict | None = None,        # see "Custom fields"
 ) -> dict
 ```
 
 Pass only the fields to change; giving none raises `ValueError`. Use it to
 **close/resolve** (`state="Closed"` — valid state names are
 process-template-specific: Agile uses `Closed`, Scrum `Done`, some templates
-`Resolved`; check an existing item's `state` if a transition is rejected) and to
-**reassign** an existing item.
+`Resolved`; check an existing item's `state` if a transition is rejected),
+**reassign** an existing item, or **move it** to another area/sprint.
 
-CLI: `devops-utils azdo update WORK_ITEM_ID [--state S] [--assigned-to WHO] [--title T] [--description H]`
+CLI: `devops-utils azdo update WORK_ITEM_ID [--state S] [--assigned-to WHO] [--title T] [--description H] [--area-path P] [--iteration-path P] [--field NAME=VALUE ...]`
+
+### Area path / iteration path
+
+`System.AreaPath` and `System.IterationPath` are Azure Boards' two
+classification trees — area = which team/component owns the item, iteration =
+which sprint it's in. Paths are backslash-separated and rooted at the project
+name, e.g. `Contoso\Team A` / `Contoso\Sprint 3`.
+
+- **On `create`/`update`** they **set** the field, i.e. move the item.
+- **On `list`/`search`** they **filter** using WIQL `UNDER`, matching the given
+  node *and everything nested under it* — `area_path="Contoso\\Team A"` also
+  returns items in `Contoso\Team A\Sub-team`. That is usually what you want;
+  there is no exact-node-only variant.
+
+```bash
+# everything the Payments team has open in the current sprint
+devops-utils azdo list --project Contoso \
+  --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3' \
+  --state Active --state New
+
+# move an item to another sprint
+devops-utils azdo update 1421 --iteration-path 'Contoso\Sprint 4'
+```
+
+An invalid path is rejected by the server — list an existing item and read its
+values if a write fails with a classification-node error.
+
+### Custom fields
+
+`azdo_create_work_item` and `azdo_update_work_item` take a `fields` dict
+(CLI: repeatable `--field NAME=VALUE`) to set **any** work-item field the named
+parameters don't cover — process-specific fields like
+`Microsoft.VSTS.Common.Priority` or org-defined ones like `Custom.RiskLevel`:
+
+```python
+tools.azdo_create_work_item(
+    "Contoso", "Bug", "Login page 500s under load",
+    fields={"Microsoft.VSTS.Common.Priority": 1, "Custom.RiskLevel": "High"},
+)
+tools.azdo_update_work_item(1421, fields={"Custom.RiskLevel": "Low"})
+```
+
+```bash
+devops-utils azdo update 1421 --field Custom.RiskLevel=Low
+```
+
+Keys must be the field's **reference name** (`Custom.RiskLevel`), not its
+display label ("Risk Level") — reference names are process/org specific, so
+check the project's process configuration if a write is rejected. Values pass
+through as-is (string/number/bool). `fields` is applied *after* the named
+params, so a key targeting e.g. `System.AreaPath` overrides `area_path`.
 
 ### Comment on a work item
 
@@ -425,7 +492,8 @@ CLI: `devops-utils azdo attach WORK_ITEM_ID FILE_PATH [--comment C]`
 Every work-item op returns a trimmed dict (`_trim` in `workitems.py`):
 
 ```python
-{"id", "type", "title", "state", "assigned_to", "tags", "url"}
+{"id", "type", "title", "state", "assigned_to", "tags",
+ "area_path", "iteration_path", "url"}
 ```
 
 `list`/`search` return a `list` of these; `get`/`create`/`comment`/`tag`/`link`/

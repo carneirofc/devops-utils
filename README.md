@@ -74,8 +74,10 @@ export AZURE_DEVOPS_API_VERSION="7.1"      # lower for older on-prem servers
 devops-utils azdo repos --project MyProject --name api
 devops-utils azdo list --project MyProject --state Active --type Bug
 devops-utils azdo list --project MyProject --mine --tag backend   # @Me macro
+devops-utils azdo list --project MyProject --iteration-path 'MyProject\Sprint 3'
 devops-utils azdo search --project MyProject "login timeout"
-devops-utils azdo create --project MyProject --type Task --title "Fix flaky test"
+devops-utils azdo create --project MyProject --type Task --title "Fix flaky test" \
+  --area-path 'MyProject\Payments' --field Custom.RiskLevel=High
 devops-utils azdo update 42 --state Closed --assigned-to dev@example.com
 devops-utils azdo comment 42 "Investigating."
 devops-utils azdo tag 42 backend urgent

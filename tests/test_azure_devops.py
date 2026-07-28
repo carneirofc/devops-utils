@@ -322,6 +322,8 @@ def test_search_uses_wiql_contains():
             "state": None,
             "assigned_to": None,
             "tags": None,
+            "area_path": None,
+            "iteration_path": None,
             "url": None,
         }
     ]
@@ -717,6 +719,108 @@ def test_search_work_items_supports_assignee_and_tags():
     wiql = json.loads(calls[0].content)["query"]
     assert "[System.AssignedTo] = @Me" in wiql
     assert "[System.Tags] CONTAINS 'a''b'" in wiql
+
+
+def test_list_work_items_filters_by_area_and_iteration_path():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    list_work_items(
+        _client(handler),
+        "Proj",
+        area_path="Proj\\Team A",
+        iteration_path="Proj\\Sprint 3",
+    )
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.AreaPath] UNDER 'Proj\\Team A'" in wiql
+    assert "[System.IterationPath] UNDER 'Proj\\Sprint 3'" in wiql
+
+
+def test_search_work_items_filters_by_area_and_iteration_path():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    search_work_items(
+        _client(handler),
+        "Proj",
+        "needle",
+        area_path="Proj\\Team A",
+        iteration_path="Proj\\Sprint 3",
+    )
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.AreaPath] UNDER 'Proj\\Team A'" in wiql
+    assert "[System.IterationPath] UNDER 'Proj\\Sprint 3'" in wiql
+
+
+# --------------------------------------------------------------------------- #
+# create / update: area/iteration path + custom fields
+# --------------------------------------------------------------------------- #
+def test_create_work_item_sets_custom_fields():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"id": 1, "fields": {}, "url": "u"})
+
+    create_work_item(
+        _client(handler),
+        "Proj",
+        "Bug",
+        "Title",
+        area_path="Proj\\Team A",
+        iteration_path="Proj\\Sprint 3",
+        fields={"Custom.RiskLevel": "High"},
+    )
+    ops = json.loads(reqs[0].content)
+    assert {
+        "op": "add",
+        "path": "/fields/System.AreaPath",
+        "value": "Proj\\Team A",
+    } in ops
+    assert {
+        "op": "add",
+        "path": "/fields/System.IterationPath",
+        "value": "Proj\\Sprint 3",
+    } in ops
+    assert {
+        "op": "add",
+        "path": "/fields/Custom.RiskLevel",
+        "value": "High",
+    } in ops
+
+
+def test_update_work_item_sets_area_iteration_and_custom_fields():
+    reqs: list[httpx.Request] = []
+
+    def handler(request):
+        reqs.append(request)
+        return httpx.Response(200, json={"id": 1, "fields": {}, "url": "u"})
+
+    update_work_item(
+        _client(handler),
+        1,
+        area_path="Proj\\Team B",
+        iteration_path="Proj\\Sprint 4",
+        fields={"Custom.RiskLevel": "Low"},
+    )
+    ops = json.loads(reqs[0].content)
+    assert {
+        "op": "add",
+        "path": "/fields/System.AreaPath",
+        "value": "Proj\\Team B",
+    } in ops
+    assert {
+        "op": "add",
+        "path": "/fields/System.IterationPath",
+        "value": "Proj\\Sprint 4",
+    } in ops
+    assert {"op": "add", "path": "/fields/Custom.RiskLevel", "value": "Low"} in ops
 
 
 # --------------------------------------------------------------------------- #

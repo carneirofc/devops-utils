@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-28
+
+### Added
+
+- **Area path / iteration path support.** `azdo create`/`update` set
+  `System.AreaPath`/`System.IterationPath` via `--area-path`/`--iteration-path`;
+  `azdo list`/`search` filter by them (WIQL `UNDER`, matching the node and
+  everything nested under it). Same params on the `azdo_*` MCP/agent tools.
+- **Custom field support.** `azdo create`/`update` accept arbitrary
+  process-/org-specific fields via repeatable `--field NAME=VALUE` (CLI) or a
+  `fields` dict (`azdo_create_work_item`/`azdo_update_work_item`), keyed by
+  field reference name.
+
+### Changed
+
+- **Work items now return `area_path` and `iteration_path`.** The trimmed
+  work-item shape gains both fields, so callers can read an item's area/sprint
+  instead of only filtering by them.
+- Skills, subagent instructions, and docs updated for the new parameters; the
+  `azure-devops-work-items` skill's human-in-the-loop section was also
+  corrected — it still described seven gated MCP tools and an ungated CLI,
+  both superseded in 0.6.0.
+
 ## [0.6.0] - 2026-07-28
 
 ### Added

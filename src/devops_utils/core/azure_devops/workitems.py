@@ -67,6 +67,8 @@ def _trim(item: dict[str, Any]) -> dict[str, Any]:
         if isinstance(fields.get("System.AssignedTo"), dict)
         else fields.get("System.AssignedTo"),
         "tags": fields.get("System.Tags"),
+        "area_path": fields.get("System.AreaPath"),
+        "iteration_path": fields.get("System.IterationPath"),
         "url": item.get("url"),
     }
 
@@ -83,6 +85,7 @@ def create_work_item(
     iteration_path: str | None = None,
     assigned_to: str | None = None,
     parent: int | None = None,
+    fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a work item and return the trimmed result.
 
@@ -95,6 +98,11 @@ def create_work_item(
         area_path / iteration_path: Optional classification nodes.
         assigned_to: Optional identity (email or display name).
         parent: Optional parent work-item id; links the new item under it.
+        fields: Optional extra/custom fields as ``{reference_name: value}``,
+            e.g. ``{"Custom.RiskLevel": "High"}``. Reference names are process
+            or org specific; use the field's reference name, not its display
+            label. Applied after the named args above, so a key here overrides
+            e.g. ``area_path`` if it targets ``System.AreaPath``.
     """
     ops: list[dict[str, Any]] = [_add("/fields/System.Title", title)]
     if description:
@@ -110,6 +118,8 @@ def create_work_item(
     if parent is not None:
         rel, url, _ = _build_relation(client, "parent", str(parent), None, None)
         ops.append(_add("/relations/-", {"rel": rel, "url": url}))
+    for name, value in (fields or {}).items():
+        ops.append(_add(f"/fields/{name}", value))
 
     data = client.request(
         "POST",
@@ -194,6 +204,9 @@ def update_work_item(
     assigned_to: str | None = None,
     title: str | None = None,
     description: str | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
+    fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Update mutable fields of an existing work item.
 
@@ -203,6 +216,15 @@ def update_work_item(
         assigned_to: New assignee identity (email or display name).
         title: New ``System.Title``.
         description: New ``System.Description`` (HTML).
+        area_path: New ``System.AreaPath`` (e.g. ``Project\\Team``), used to
+            move the item between Azure Boards areas.
+        iteration_path: New ``System.IterationPath`` (e.g.
+            ``Project\\Sprint 3``), used to move the item between sprints.
+        fields: Optional extra/custom fields as ``{reference_name: value}``,
+            e.g. ``{"Custom.RiskLevel": "High"}``. Reference names are process
+            or org specific; use the field's reference name, not its display
+            label. Applied after the named args above, so a key here overrides
+            e.g. ``state`` if it targets ``System.State``.
 
     Raises:
         ValueError: If no field to update was given.
@@ -216,10 +238,16 @@ def update_work_item(
         ops.append(_add("/fields/System.Title", title))
     if description is not None:
         ops.append(_add("/fields/System.Description", description))
+    if area_path is not None:
+        ops.append(_add("/fields/System.AreaPath", area_path))
+    if iteration_path is not None:
+        ops.append(_add("/fields/System.IterationPath", iteration_path))
+    for name, value in (fields or {}).items():
+        ops.append(_add(f"/fields/{name}", value))
     if not ops:
         raise ValueError(
-            "nothing to update: give at least one of "
-            "state/assigned_to/title/description"
+            "nothing to update: give at least one of state/assigned_to/title/"
+            "description/area_path/iteration_path/fields"
         )
 
     data = client.request(
@@ -395,13 +423,16 @@ def list_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
     """List work items in a project, optionally filtered by state/type/assignee/tags.
 
     ``assigned_to="@Me"`` uses the WIQL ``@Me`` macro, resolving the identity
     behind the token server-side. Each tag becomes an AND-joined
-    ``[System.Tags] CONTAINS`` clause.
+    ``[System.Tags] CONTAINS`` clause. ``area_path``/``iteration_path`` match
+    the given node and everything under it (Azure Boards area/iteration tree).
     """
     clauses = [f"[System.TeamProject] = '{_esc(project)}'"]
     if states:
@@ -410,6 +441,10 @@ def list_work_items(
         clauses.append(_in_clause("System.WorkItemType", types))
     if assigned_to:
         clauses.append(_assigned_clause(assigned_to))
+    if area_path:
+        clauses.append(_under_clause("System.AreaPath", area_path))
+    if iteration_path:
+        clauses.append(_under_clause("System.IterationPath", iteration_path))
     clauses.extend(_tag_clauses(tags))
     # WIQL, not SQL; all interpolated values pass through _esc(). nosec B608
     wiql = (
@@ -430,12 +465,14 @@ def search_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    area_path: str | None = None,
+    iteration_path: str | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
     """Text-search work items by title/description using WIQL ``CONTAINS``.
 
-    Supports the same ``assigned_to`` (incl. ``@Me``) and ``tags`` filters as
-    :func:`list_work_items`.
+    Supports the same ``assigned_to`` (incl. ``@Me``), ``tags``, ``area_path``,
+    and ``iteration_path`` filters as :func:`list_work_items`.
     """
     term = _esc(text)
     clauses = [
@@ -448,6 +485,10 @@ def search_work_items(
         clauses.append(_in_clause("System.WorkItemType", types))
     if assigned_to:
         clauses.append(_assigned_clause(assigned_to))
+    if area_path:
+        clauses.append(_under_clause("System.AreaPath", area_path))
+    if iteration_path:
+        clauses.append(_under_clause("System.IterationPath", iteration_path))
     clauses.extend(_tag_clauses(tags))
     # WIQL, not SQL; all interpolated values pass through _esc(). nosec B608
     wiql = (
@@ -563,6 +604,11 @@ def _tag_clauses(tags: list[str] | None) -> list[str]:
 def _in_clause(field: str, values: list[str]) -> str:
     joined = ", ".join(f"'{_esc(v)}'" for v in values)
     return f"[{field}] IN ({joined})"
+
+
+def _under_clause(field: str, value: str) -> str:
+    """Build a hierarchical path clause (matches the node and its children)."""
+    return f"[{field}] UNDER '{_esc(value)}'"
 
 
 def _get_batch(client: AzureDevOpsClient, ids: list[int]) -> list[dict[str, Any]]:
