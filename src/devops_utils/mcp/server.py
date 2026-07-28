@@ -7,21 +7,18 @@ in the MCP SDK when the extra is not installed.
 
 import functools
 import inspect
-import os
 from typing import Any, Callable
 
 import yaml
 
 from devops_utils.agent import tools as agent_tools
+from devops_utils.core.confirmation import SKIP_CONFIRMATION_ENV
+from devops_utils.core.confirmation import skip_confirmation as _skip_confirmation
 from devops_utils.core.sanitizer import sanitize as _sanitize
 
-# Environment variable that, when truthy, lets work-item writes proceed without
-# a human confirmation prompt (for deliberate, unattended automation).
-_SKIP_CONFIRMATION_ENV = "DEVOPS_UTILS_SKIP_CONFIRMATION"
-
-# Work-item write tools gated behind a human confirmation (elicitation) prompt.
-# Kept as an explicit, auditable set separate from read/non-work-item tools.
-WORK_ITEM_WRITE_TOOLS = (
+# All write tools gated behind a human confirmation (elicitation) prompt. Kept
+# as an explicit, auditable set separate from the read tools.
+WRITE_TOOLS = (
     agent_tools.azdo_create_work_item,
     agent_tools.azdo_comment_work_item,
     agent_tools.azdo_set_work_item_tags,
@@ -29,6 +26,8 @@ WORK_ITEM_WRITE_TOOLS = (
     agent_tools.azdo_add_work_item_link,
     agent_tools.azdo_remove_work_item_link,
     agent_tools.azdo_add_work_item_attachment,
+    agent_tools.azdo_tag_build,
+    agent_tools.azdo_comment_pull_request,
 )
 
 
@@ -53,16 +52,6 @@ def _confirm_schema() -> type:
     return _confirm_schema_cache
 
 
-def _skip_confirmation() -> bool:
-    """Whether work-item write confirmation is bypassed via env var."""
-    return os.environ.get(_SKIP_CONFIRMATION_ENV, "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-
-
 def _preview(fn: Callable[..., Any], kwargs: dict[str, Any]) -> str:
     """Build a compact, human-readable description of a pending write call."""
     args = ", ".join(f"{key}={value!r}" for key, value in kwargs.items())
@@ -70,7 +59,7 @@ def _preview(fn: Callable[..., Any], kwargs: dict[str, Any]) -> str:
 
 
 def _confirm_write(fn: Callable[..., Any], ctx_type: type) -> Callable[..., Any]:
-    """Wrap a work-item write callable so a human approves it before it runs.
+    """Wrap a write callable so a human approves it before it runs.
 
     The returned async tool preserves ``fn``'s name, docstring, and parameters
     (so the MCP input schema is unchanged) and injects a keyword-only ``ctx``
@@ -106,7 +95,7 @@ def _confirm_write(fn: Callable[..., Any], ctx_type: type) -> Callable[..., Any]
                 "tool": fn.__name__,
                 "message": (
                     "Human confirmation required but unavailable; set "
-                    f"{_SKIP_CONFIRMATION_ENV}=1 to allow unattended writes."
+                    f"{SKIP_CONFIRMATION_ENV}=1 to allow unattended writes."
                 ),
             }
 
@@ -162,9 +151,9 @@ def _build_server():
     # the logic (and docstrings the LLM reads) live in one place. Config comes
     # from AZURE_DEVOPS_ORG_URL / AZURE_DEVOPS_TOKEN env vars.
     #
-    # Read tools and non-work-item writes (build tags, PR comments) register
-    # directly. Work-item write tools are wrapped with an elicitation gate so a
-    # human confirms each mutation before it reaches Azure DevOps.
+    # Read tools register directly. Every write tool (work items, build tags,
+    # PR comments) is wrapped with an elicitation gate so a human confirms each
+    # mutation before it reaches Azure DevOps.
     for fn in (
         agent_tools.azdo_list_repositories,
         agent_tools.azdo_find_repo_files,
@@ -178,12 +167,10 @@ def _build_server():
         agent_tools.azdo_get_build_timeline,
         agent_tools.azdo_list_build_logs,
         agent_tools.azdo_get_build_log,
-        agent_tools.azdo_tag_build,
-        agent_tools.azdo_comment_pull_request,
     ):
         server.tool()(fn)
 
-    for fn in WORK_ITEM_WRITE_TOOLS:
+    for fn in WRITE_TOOLS:
         server.tool()(_confirm_write(fn, Context))
 
     return server

@@ -14,22 +14,32 @@ Windows credential store). Everything comes from environment variables:
 | `AZURE_DEVOPS_TOKEN` | yes | Bearer token or PAT |
 | `AZURE_DEVOPS_AUTH_SCHEME` | no | `bearer` (default) sends `Authorization: Bearer`; `pat` sends `Authorization: Basic base64(":"+token)` |
 | `AZURE_DEVOPS_API_VERSION` | no | Default `7.1`; lower it for older on-prem servers |
-| `DEVOPS_UTILS_SKIP_CONFIRMATION` | no | Truthy (`1`/`true`/`yes`/`on`) bypasses the MCP work-item write confirmation (see *Human-in-the-loop*) |
+| `DEVOPS_UTILS_SKIP_CONFIRMATION` | no | Truthy (`1`/`true`/`yes`/`on`) bypasses the MCP write confirmation and the CLI's confirmation prompt (see *Human-in-the-loop*) |
 
-## Human-in-the-loop (MCP work-item writes)
+## Human-in-the-loop (MCP writes)
 
-On the **MCP server**, the seven work-item write tools (`azdo_create_work_item`,
+On the **MCP server**, all nine write tools (`azdo_create_work_item`,
 `azdo_comment_work_item`, `azdo_set_work_item_tags`, `azdo_update_work_item`,
 `azdo_add_work_item_link`, `azdo_remove_work_item_link`,
-`azdo_add_work_item_attachment`) require human approval via MCP **elicitation**
-before mutating Azure DevOps — the tool describes the pending change and applies
-it only on `accept`; `decline`/`cancel` returns a `cancelled` status and writes
-nothing. When the client can't prompt (elicitation unsupported / non-interactive),
-the write is **blocked** unless `DEVOPS_UTILS_SKIP_CONFIRMATION` is truthy, which
-allows unattended automation. Read tools and the non-work-item writes
-(`azdo_tag_build`, `azdo_comment_pull_request`) are not gated; the CLI and agent
-callables are unaffected (a human/caller invokes them directly). Implemented in
-`src/devops_utils/mcp/server.py` (`_confirm_write` + `WORK_ITEM_WRITE_TOOLS`).
+`azdo_add_work_item_attachment`, `azdo_tag_build`, `azdo_comment_pull_request`)
+require human approval via MCP **elicitation** before mutating Azure DevOps —
+the tool describes the pending change and applies it only on `accept`;
+`decline`/`cancel` returns a `cancelled` status and writes nothing. When the
+client can't prompt (elicitation unsupported / non-interactive), the write is
+**blocked** unless `DEVOPS_UTILS_SKIP_CONFIRMATION` is truthy, which allows
+unattended automation. Read tools are not gated. Implemented in
+`src/devops_utils/mcp/server.py` (`_confirm_write` + `WRITE_TOOLS`).
+
+## Human-in-the-loop (CLI writes)
+
+The **CLI**'s write commands (`create`, `comment`, `tag`, `update`, `link`,
+`unlink`, `build-tag`, `pr-comment`, `attach`) print a preview of the pending
+change and prompt `Apply this change? [y/N]` before calling Azure DevOps.
+Pass `--yes`/`-y` to skip the prompt, or `--dry-run` to print the preview and
+exit without applying anything. `DEVOPS_UTILS_SKIP_CONFIRMATION` also skips
+the prompt, for scripted use. Implemented in
+`src/devops_utils/cli/commands/azdo.py` (`_confirm_or_dry_run`) and shared
+with the MCP server via `src/devops_utils/core/confirmation.py`.
 
 ## Surfaces
 

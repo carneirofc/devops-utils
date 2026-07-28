@@ -1,6 +1,6 @@
-"""Tests for the MCP work-item write confirmation gate (human-in-the-loop).
+"""Tests for the MCP write confirmation gate (human-in-the-loop).
 
-The gate wraps each work-item write tool so a human approves the mutation via MCP
+The gate wraps each write tool so a human approves the mutation via MCP
 elicitation before it reaches Azure DevOps. These tests exercise the wrapper with
 a scripted stub ``ctx`` (no live client) and assert the registration split.
 """
@@ -149,8 +149,8 @@ def test_skip_confirmation_unset_is_false(monkeypatch):
 # --------------------------------------------------------------------------- #
 # registration split
 # --------------------------------------------------------------------------- #
-def test_gated_set_is_exactly_the_work_item_writers():
-    assert set(server.WORK_ITEM_WRITE_TOOLS) == {
+def test_gated_set_is_exactly_all_writers():
+    assert set(server.WRITE_TOOLS) == {
         agent_tools.azdo_create_work_item,
         agent_tools.azdo_comment_work_item,
         agent_tools.azdo_set_work_item_tags,
@@ -158,10 +158,9 @@ def test_gated_set_is_exactly_the_work_item_writers():
         agent_tools.azdo_add_work_item_link,
         agent_tools.azdo_remove_work_item_link,
         agent_tools.azdo_add_work_item_attachment,
+        agent_tools.azdo_tag_build,
+        agent_tools.azdo_comment_pull_request,
     }
-    # non-work-item writes are deliberately NOT gated
-    assert agent_tools.azdo_tag_build not in server.WORK_ITEM_WRITE_TOOLS
-    assert agent_tools.azdo_comment_pull_request not in server.WORK_ITEM_WRITE_TOOLS
 
 
 def test_server_registers_gated_tools_async_with_context_and_clean_schema():
@@ -183,3 +182,9 @@ def test_server_registers_gated_tools_async_with_context_and_clean_schema():
     # a read tool stays a plain sync tool with no injected context
     read = srv._tool_manager.get_tool("azdo_get_work_item")
     assert read.context_kwarg is None
+
+    # the previously-ungated non-work-item writes are now gated too
+    for name in ("azdo_tag_build", "azdo_comment_pull_request"):
+        gated = srv._tool_manager.get_tool(name)
+        assert gated.is_async
+        assert gated.context_kwarg == "ctx"

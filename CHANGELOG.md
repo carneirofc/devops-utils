@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-28
+
+### Added
+
+- **CLI write confirmation.** `devops-utils azdo` write commands (`create`,
+  `comment`, `tag`, `update`, `link`, `unlink`, `build-tag`, `pr-comment`,
+  `attach`) now preview the pending change and prompt for confirmation before
+  calling Azure DevOps. Use `--yes`/`-y` to skip the prompt or `--dry-run` to
+  preview without applying; `DEVOPS_UTILS_SKIP_CONFIRMATION` also skips it.
+
+### Changed
+
+- **MCP write gate now covers all nine write tools.** `azdo_tag_build` and
+  `azdo_comment_pull_request` previously bypassed the MCP human-confirmation
+  gate; they're now wrapped the same as the other seven work-item writes.
+  The shared `DEVOPS_UTILS_SKIP_CONFIRMATION` check moved to
+  `devops_utils.core.confirmation` so the CLI and MCP server use one
+  implementation.
+
 ## [0.5.0] - 2026-07-24
 
 ### Added

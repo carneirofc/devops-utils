@@ -12,10 +12,29 @@ import click
 
 from devops_utils.agent import tools
 from devops_utils.core.azure_devops.workitems import LINK_KINDS
+from devops_utils.core.confirmation import skip_confirmation
+
+_YES_OPTION = click.option(
+    "--yes", "-y", is_flag=True, help="Skip confirmation prompt."
+)
+_DRY_RUN_OPTION = click.option(
+    "--dry-run", is_flag=True, help="Preview the change without applying it."
+)
 
 
 def _echo(result: Any) -> None:
     click.echo(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+def _confirm_or_dry_run(preview: dict[str, Any], *, yes: bool, dry_run: bool) -> bool:
+    """Show the pending write; return True if the caller should proceed."""
+    click.echo(f"About to write: {json.dumps(preview, ensure_ascii=False)}")
+    if dry_run:
+        click.echo("(dry run — not applied)")
+        return False
+    if yes or skip_confirmation():
+        return True
+    return click.confirm("Apply this change?", default=False)
 
 
 @click.group("azdo")
@@ -139,6 +158,8 @@ def get(work_item_id: int, relations: bool) -> None:
 @click.option(
     "--parent", type=int, default=None, help="Parent work-item id to create under."
 )
+@_YES_OPTION
+@_DRY_RUN_OPTION
 def create(
     project: str,
     work_item_type: str,
@@ -149,8 +170,27 @@ def create(
     iteration_path: str | None,
     assigned_to: str | None,
     parent: int | None,
+    yes: bool,
+    dry_run: bool,
 ) -> None:
     """Create a work item."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "create",
+            "project": project,
+            "type": work_item_type,
+            "title": title,
+            "description": description,
+            "tags": list(tags) or None,
+            "area_path": area_path,
+            "iteration_path": iteration_path,
+            "assigned_to": assigned_to,
+            "parent": parent,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(
         tools.azdo_create_work_item(
             project,
@@ -169,8 +209,16 @@ def create(
 @azdo.command("comment")
 @click.argument("work_item_id", type=int)
 @click.argument("text")
-def comment(work_item_id: int, text: str) -> None:
+@_YES_OPTION
+@_DRY_RUN_OPTION
+def comment(work_item_id: int, text: str, yes: bool, dry_run: bool) -> None:
     """Add a comment to a work item."""
+    if not _confirm_or_dry_run(
+        {"action": "comment", "work_item_id": work_item_id, "text": text},
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(tools.azdo_comment_work_item(work_item_id, text))
 
 
@@ -184,8 +232,23 @@ def comment(work_item_id: int, text: str) -> None:
     show_default=True,
     help="Merge with or replace existing tags.",
 )
-def tag(work_item_id: int, tags: tuple[str, ...], mode: str) -> None:
+@_YES_OPTION
+@_DRY_RUN_OPTION
+def tag(
+    work_item_id: int, tags: tuple[str, ...], mode: str, yes: bool, dry_run: bool
+) -> None:
     """Set tags on a work item."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "tag",
+            "work_item_id": work_item_id,
+            "tags": list(tags),
+            "mode": mode,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(tools.azdo_set_work_item_tags(work_item_id, list(tags), mode))
 
 
@@ -197,18 +260,35 @@ def tag(work_item_id: int, tags: tuple[str, ...], mode: str) -> None:
 )
 @click.option("--title", default=None, help="New title.")
 @click.option("--description", default=None, help="New HTML description.")
+@_YES_OPTION
+@_DRY_RUN_OPTION
 def update(
     work_item_id: int,
     state: str | None,
     assigned_to: str | None,
     title: str | None,
     description: str | None,
+    yes: bool,
+    dry_run: bool,
 ) -> None:
     """Update a work item's state, assignee, title, or description."""
     if state is None and assigned_to is None and title is None and description is None:
         raise click.UsageError(
             "give at least one of --state/--assigned-to/--title/--description"
         )
+    if not _confirm_or_dry_run(
+        {
+            "action": "update",
+            "work_item_id": work_item_id,
+            "state": state,
+            "assigned_to": assigned_to,
+            "title": title,
+            "description": description,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(
         tools.azdo_update_work_item(
             work_item_id,
@@ -238,6 +318,8 @@ def update(
 )
 @click.option("--repo", default=None, help="Required for commit/pull_request/branch.")
 @click.option("--comment", default=None, help="Optional note on the relation.")
+@_YES_OPTION
+@_DRY_RUN_OPTION
 def link(
     work_item_id: int,
     kind: str,
@@ -245,8 +327,24 @@ def link(
     project: str | None,
     repo: str | None,
     comment: str | None,
+    yes: bool,
+    dry_run: bool,
 ) -> None:
     """Add a reference (commit, PR, branch, build, work item, or hyperlink)."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "link",
+            "work_item_id": work_item_id,
+            "kind": kind,
+            "value": value,
+            "project": project,
+            "repo": repo,
+            "comment": comment,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(
         tools.azdo_add_work_item_link(
             work_item_id, kind, value, project=project, repo=repo, comment=comment
@@ -271,14 +369,31 @@ def link(
     "--project", default=None, help="Required for commit/pull_request/branch."
 )
 @click.option("--repo", default=None, help="Required for commit/pull_request/branch.")
+@_YES_OPTION
+@_DRY_RUN_OPTION
 def unlink(
     work_item_id: int,
     kind: str,
     value: str,
     project: str | None,
     repo: str | None,
+    yes: bool,
+    dry_run: bool,
 ) -> None:
     """Remove a reference (commit, PR, branch, build, work item, or hyperlink)."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "unlink",
+            "work_item_id": work_item_id,
+            "kind": kind,
+            "value": value,
+            "project": project,
+            "repo": repo,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(
         tools.azdo_remove_work_item_link(
             work_item_id, kind, value, project=project, repo=repo
@@ -421,8 +536,23 @@ def code_search_cmd(
 @click.argument("build_id", type=int)
 @click.argument("tags", nargs=-1, required=True)
 @click.option("--project", required=True, help="Team project name or id.")
-def build_tag(build_id: int, tags: tuple[str, ...], project: str) -> None:
+@_YES_OPTION
+@_DRY_RUN_OPTION
+def build_tag(
+    build_id: int, tags: tuple[str, ...], project: str, yes: bool, dry_run: bool
+) -> None:
     """Add tags to a build."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "build-tag",
+            "project": project,
+            "build_id": build_id,
+            "tags": list(tags),
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(tools.azdo_tag_build(project, build_id, list(tags)))
 
 
@@ -438,14 +568,31 @@ def build_tag(build_id: int, tags: tuple[str, ...], project: str) -> None:
     default=None,
     help="Existing thread id to reply to; omit to start a new thread.",
 )
+@_YES_OPTION
+@_DRY_RUN_OPTION
 def pr_comment(
     pull_request_id: int,
     text: str,
     project: str,
     repo: str,
     thread_id: int | None,
+    yes: bool,
+    dry_run: bool,
 ) -> None:
     """Comment on a pull request (new thread or reply)."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "pr-comment",
+            "project": project,
+            "repo": repo,
+            "pull_request_id": pull_request_id,
+            "text": text,
+            "thread_id": thread_id,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(
         tools.azdo_comment_pull_request(
             project, repo, pull_request_id, text, thread_id=thread_id
@@ -457,6 +604,21 @@ def pr_comment(
 @click.argument("work_item_id", type=int)
 @click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
 @click.option("--comment", default=None, help="Optional note on the attachment.")
-def attach(work_item_id: int, file_path: str, comment: str | None) -> None:
+@_YES_OPTION
+@_DRY_RUN_OPTION
+def attach(
+    work_item_id: int, file_path: str, comment: str | None, yes: bool, dry_run: bool
+) -> None:
     """Upload a local file and attach it to a work item."""
+    if not _confirm_or_dry_run(
+        {
+            "action": "attach",
+            "work_item_id": work_item_id,
+            "file_path": file_path,
+            "comment": comment,
+        },
+        yes=yes,
+        dry_run=dry_run,
+    ):
+        return
     _echo(tools.azdo_add_work_item_attachment(work_item_id, file_path, comment=comment))
