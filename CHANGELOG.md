@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Skills and subagents now prescribe the `Epic → Feature → User Story`
+  backlog pattern.** `azure-devops-work-items` gains a hierarchy section
+  (create top-down with `parent`, never orphan a Feature/Story, per-process
+  type mapping for Scrum/CMMI/Basic); `azure-devops-research` and
+  `azdo-workitem-analyst` gain the read-side counterpart (walk `parent`/`child`
+  relations, roll status up, flag hierarchy breaks). Plugin tree regenerated.
+
 ## [0.7.0] - 2026-07-28
 
 ### Added

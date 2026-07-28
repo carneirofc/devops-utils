@@ -64,6 +64,20 @@ elicitation-gated) instead.
 - Drill in with `azdo_get_work_item(id, relations=True)` to see parent/child
   items and linked commits/PRs/branches/builds.
 
+## Walk the hierarchy (Epic → Feature → User Story)
+
+The backlog is structured `Epic → Feature → User Story → Task/Bug` (Scrum
+`Product Backlog Item`, CMMI `Requirement`, Basic `Epic → Issue → Task`).
+
+- `azdo_get_work_item(id, relations=True)` → follow `parent` up to the Epic,
+  `child` down to everything a Feature or Epic contains.
+- Scope a level with `types=["Feature"]` / `["User Story"]` on
+  `azdo_list_work_items`, then expand the interesting ids via relations.
+- Roll status up — a Feature is as done as its stories, an Epic as its features
+  — and name the parent when reporting a story.
+- Report hierarchy breaks (orphan Feature/Story, a story parented straight to
+  an Epic); fixing them is a write, handled by `azure-devops-work-items`.
+
 ## Filter by team (area) and sprint (iteration)
 
 `area_path`/`iteration_path` on `azdo_list_work_items` and

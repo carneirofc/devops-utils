@@ -226,6 +226,61 @@ template. Common values: `Bug`, `Task`, `User Story`, `Feature`, `Epic`,
 error, list an existing item with `azdo_list_work_items` to see the `type`
 values the project actually uses.
 
+### Work-item hierarchy — always Epic → Feature → User Story
+
+**Structure every backlog item this way.** New work is decomposed top-down and
+each level is parented to the one above:
+
+```
+Epic            business outcome / initiative, spans releases
+└── Feature     shippable capability delivering part of the Epic
+    └── User Story   user-visible increment, estimable, fits in a sprint
+        └── Task / Bug   implementation steps and defects (optional leaf)
+```
+
+Rules:
+
+- **Never create an orphan** Feature or User Story. Pass `parent=<id>` on
+  `azdo_create_work_item` (CLI `--parent ID`), or fix an existing item with
+  `azdo_add_work_item_link(id, "parent", "<parent-id>")`.
+- **Ask for the missing level, don't skip it.** If the user asks for a story and
+  names no Feature, first look for one — `azdo_search_work_items(project, text,
+  types=["Feature"])` — and only create the Feature (itself parented to an Epic)
+  when nothing fits. Same one level up for Feature → Epic. Every create is
+  confirmation-gated, so propose the whole chain in one preview.
+- **Create top-down**, capturing each id: Epic → Feature (`parent=epic`) →
+  User Story (`parent=feature`) → Task/Bug (`parent=story`).
+- **Bugs** hang off the User Story whose behaviour they break; a bug with no
+  story goes under the Feature.
+- **Verify** with `azdo_get_work_item(id, relations=True)` — the `parent` /
+  `child` relations should reproduce the chain above.
+- **Type names per process template** — the *shape* is fixed, the labels are
+  not: Agile `Epic → Feature → User Story → Task`, Scrum
+  `Epic → Feature → Product Backlog Item → Task`, CMMI
+  `Epic → Feature → Requirement → Task`, Basic `Epic → Issue → Task` (no
+  Feature level). Read an existing item's `type` when unsure, and say which
+  mapping you used.
+
+```bash
+epic=$(devops-utils azdo create --project Contoso --type Epic \
+  --title "Self-service checkout" -y | jq -r .id)
+feature=$(devops-utils azdo create --project Contoso --type Feature \
+  --title "Guest checkout" --parent "$epic" -y | jq -r .id)
+devops-utils azdo create --project Contoso --type "User Story" \
+  --title "As a guest I can pay without an account" --parent "$feature"
+```
+
+```python
+epic = tools.azdo_create_work_item("Contoso", "Epic", "Self-service checkout")
+feature = tools.azdo_create_work_item(
+    "Contoso", "Feature", "Guest checkout", parent=epic["id"]
+)
+story = tools.azdo_create_work_item(
+    "Contoso", "User Story",
+    "As a guest I can pay without an account", parent=feature["id"],
+)
+```
+
 ### Update a work item (state / assignee / title / description / area / iteration / custom)
 
 ```python

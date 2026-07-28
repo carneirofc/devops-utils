@@ -39,6 +39,21 @@ with a missing-env-var error, report that instead of retrying.
   parent/child links, related items, commits/PRs/branches/builds, and
   attachments — use it to trace how an item connects to code and pipelines.
 
+## Hierarchy: Epic → Feature → User Story
+
+The backlog is structured `Epic → Feature → User Story → Task/Bug` (Scrum uses
+`Product Backlog Item`, CMMI `Requirement`, Basic collapses to
+`Epic → Issue → Task`). Read and report against that shape:
+
+- Walk up with `azdo_get_work_item(id, relations=True)` and follow `parent`
+  until you reach the Epic; walk down with `child` to enumerate what a Feature
+  or Epic actually contains.
+- Roll status up: a Feature's progress is its stories' states, an Epic's is its
+  features'. Give the parent's id/title as context whenever you report a story.
+- **Flag violations**: a Feature or User Story with no parent, or a level
+  skipped (story parented straight to an Epic). Report them — never fix them;
+  writes go back to the main assistant.
+
 ## Reporting
 
 - Keep `top` modest (default 50 is usually plenty); results are already trimmed
