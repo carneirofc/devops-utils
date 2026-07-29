@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`UnicodeEncodeError` on Windows when CLI output is redirected.** A piped or
+  redirected stdout defaults to the ANSI code page (`cp1252`), so echoing a
+  work-item title containing `←`/`→` — or the CLI's own `(dry run — not
+  applied)` — crashed the command mid-write. The root `devops-utils` group now
+  reconfigures stdout/stderr to UTF-8 with `errors="backslashreplace"`
+  (`devops_utils.cli.encoding`), so unencodable characters degrade to an escape
+  sequence instead of raising.
+
 ### Changed
 
 - **Skills and subagents now prescribe the `Epic → Feature → User Story`
