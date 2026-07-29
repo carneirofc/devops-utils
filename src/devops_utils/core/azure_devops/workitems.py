@@ -131,7 +131,11 @@ def create_work_item(
 
 
 def get_work_item(
-    client: AzureDevOpsClient, work_item_id: int, *, relations: bool = False
+    client: AzureDevOpsClient,
+    work_item_id: int,
+    *,
+    relations: bool = False,
+    full: bool = False,
 ) -> dict[str, Any]:
     """Fetch a single work item (trimmed).
 
@@ -139,6 +143,17 @@ def get_work_item(
         relations: When true, include the item's relations (parent/child links,
             related work items, hyperlinks, attachments, artifact links) as a
             ``relations`` list of ``{kind, target, ...}`` dicts.
+        full: When true, add the item's complete raw ``fields`` mapping (keyed by
+            field reference name) plus its ``rev``. The trimmed keys stay put;
+            this is the only way to read a description, a scheduling date, or a
+            ``Custom.*`` field that :func:`_trim` drops, and ``rev`` is what a
+            caller needs for a concurrency-safe follow-up patch.
+
+            The whole response body already carries these — no extra request and
+            no REST ``fields=`` selector, which matters because ``fields=`` and
+            ``$expand`` are mutually exclusive server-side (undocumented; it
+            surfaces only as a runtime 400). Reading the default body instead
+            keeps ``full`` and ``relations`` freely composable.
     """
     params = {"$expand": "relations"} if relations else None
     data = client.request("GET", f"_apis/wit/workitems/{work_item_id}", params=params)
@@ -146,6 +161,10 @@ def get_work_item(
     if relations:
         raw = data.get("relations") or [] if isinstance(data, dict) else []
         trimmed["relations"] = [_trim_relation(rel) for rel in raw]
+    if full:
+        raw_fields = (data.get("fields") or {}) if isinstance(data, dict) else {}
+        trimmed["rev"] = data.get("rev") if isinstance(data, dict) else None
+        trimmed["fields"] = raw_fields
     return trimmed
 
 

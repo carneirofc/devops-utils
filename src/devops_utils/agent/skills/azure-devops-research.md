@@ -63,6 +63,10 @@ elicitation-gated) instead.
   title/description on top of the same filters.
 - Drill in with `azdo_get_work_item(id, relations=True)` to see parent/child
   items and linked commits/PRs/branches/builds.
+- Add `full=True` when the question needs the body rather than the summary —
+  the description, `Microsoft.VSTS.Scheduling.*` dates, or a `Custom.*` field
+  arrive in a `fields` map keyed by reference name. Do this per item, after
+  narrowing with `list`/`search`, which stay trimmed on purpose.
 
 ## Walk the hierarchy (Epic → Feature → User Story)
 

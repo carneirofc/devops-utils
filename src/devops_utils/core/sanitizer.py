@@ -11,8 +11,12 @@ SECRET_MASK = "***secret_hidden**"  # nosec B105
 
 
 def load_file(filename: str, debug: bool = False) -> str:
-    """Read a file and return its contents."""
-    with open(filename) as f:
+    """Read a file and return its contents.
+
+    ``encoding`` is pinned rather than left to the locale: manifests are UTF-8,
+    and the platform default is the ANSI code page on Windows.
+    """
+    with open(filename, encoding="utf-8") as f:
         return f.read()
 
 
@@ -59,5 +63,5 @@ def dump_yaml(data, filename: str, force: bool, debug: bool) -> None:
         if not confirm:
             raise RuntimeError(f"Operation aborted, file '{filename}' already exists")
 
-    with open(filename, "w+") as stream:
+    with open(filename, "w+", encoding="utf-8") as stream:
         yaml.dump_all(data, stream=stream, default_flow_style=False)

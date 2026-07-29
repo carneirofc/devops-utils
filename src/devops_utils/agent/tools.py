@@ -144,7 +144,9 @@ def azdo_search_work_items(
     )
 
 
-def azdo_get_work_item(work_item_id: int, relations: bool = False) -> dict[str, Any]:
+def azdo_get_work_item(
+    work_item_id: int, relations: bool = False, full: bool = False
+) -> dict[str, Any]:
     """Fetch a single work item by id.
 
     Args:
@@ -152,13 +154,19 @@ def azdo_get_work_item(work_item_id: int, relations: bool = False) -> dict[str, 
         relations: When true, include the item's relations (parent/child links,
             related work items, hyperlinks, attachments, commit/PR/branch links)
             as a ``relations`` list of ``{kind, target, ...}`` dicts.
+        full: When true, include the item's complete raw ``fields`` mapping
+            (keyed by field reference name) plus its ``rev`` — the way to read
+            ``System.Description``, ``Microsoft.VSTS.Scheduling.*`` dates, or a
+            ``Custom.*`` field that the trimmed shape omits. ``list``/``search``
+            stay trimmed by design: find ids there, then ``full`` one item.
 
     Returns:
-        A trimmed work-item dict.
+        A trimmed work-item dict, plus ``relations`` and/or ``fields``+``rev``
+        when requested.
     """
     from devops_utils.core.azure_devops import get_work_item
 
-    return get_work_item(_azdo_client(), work_item_id, relations=relations)
+    return get_work_item(_azdo_client(), work_item_id, relations=relations, full=full)
 
 
 def azdo_create_work_item(

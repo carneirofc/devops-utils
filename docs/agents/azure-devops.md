@@ -41,6 +41,11 @@ the prompt, for scripted use. Implemented in
 `src/devops_utils/cli/commands/azdo.py` (`_confirm_or_dry_run`) and shared
 with the MCP server via `src/devops_utils/core/confirmation.py`.
 
+The preview, the `(dry run — not applied)` marker, and the prompt all go to
+**stderr**, so stdout carries nothing but the command's JSON result and
+`azdo create … --yes | jq .id` works. With `--dry-run`, or when the prompt is
+declined, stdout is empty and the exit code is 0.
+
 ## Surfaces
 
 The same operations are exposed three ways, all reading the env vars above:
@@ -86,6 +91,12 @@ JSON-Patch `test` op.
   `{kind, target, ...}` dicts — work-item kinds (`parent`, `child`,
   `predecessor`, `successor`, `work_item`) carry the target work-item id;
   `hyperlink`/`attachment`/artifact kinds carry the URL.
+- **Read every field**: `azdo get <id> --full` /
+  `azdo_get_work_item(id, full=True)` adds `rev` and a `fields` map of the raw
+  work item, keyed by reference name — descriptions (`System.Description`,
+  HTML), scheduling dates (`Microsoft.VSTS.Scheduling.*`), and `Custom.*`
+  fields all live there. Composes with `--relations`. `list`/`search` stay
+  trimmed: find ids there, then `--full` a single item.
 
 `update` (`azdo update` / `azdo_update_work_item`) changes `System.State`,
 `System.AssignedTo`, `System.Title`, `System.Description`, `System.AreaPath`,
@@ -112,6 +123,10 @@ the field's **reference name**, not its display label — reference names are
 process/org specific, so check the target project's process configuration.
 `fields` is applied after the named args, so a key that targets e.g.
 `System.AreaPath` wins over `--area-path`.
+
+Read them back with `azdo get <id> --full` — custom fields used to be
+write-only, which made "did that patch land?" unanswerable without hitting REST
+by hand.
 
 ## Work-item research filters
 

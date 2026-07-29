@@ -13,13 +13,28 @@ Config comes only from environment variables (no machine credentials are read):
 If a command fails with a missing-variable error, ask the user to fill in the
 `.env` scaffold from `devops-utils setup env` — never hunt for credentials.
 
+## Output contract
+
+Every command prints its result as JSON on **stdout** and nothing else, so
+`azdo get <id> --full | jq -r '.fields["System.Description"]'` is safe. Write
+commands put their `About to write: {...}` preview, the
+`(dry run — not applied)` marker, and the `Apply this change?` prompt on
+**stderr**; `--dry-run` and a declined prompt leave stdout empty and exit 0.
+
+Output is UTF-8 regardless of the calling shell's code page — no `chcp`,
+`PYTHONUTF8`, or `PYTHONIOENCODING` preamble is needed for accented text.
+
 ## Conventions
 
 - **Create an issue**: `devops-utils azdo create --project {project} --type Task --title "..." --description "<p>...</p>"`.
   The description is **HTML**, not markdown. Pick `--type` from the types the
   project actually uses (`Bug`, `Task`, `User Story`, `Feature`, …); if a type is
   rejected, check what existing items use via `azdo list`.
-- **Read an issue**: `devops-utils azdo get <id>`.
+- **Read an issue**: `devops-utils azdo get <id>` returns a trimmed summary
+  (id/type/title/state/assignee/tags/area/iteration). Add `--full` for the
+  description, scheduling dates, and any `Custom.*` field — they come back as a
+  `fields` map keyed by reference name, alongside `rev`. Add `--relations` for
+  parent/child and PR/commit links; the two compose.
 - **List issues**: `devops-utils azdo list --project {project} [--state Active] [--type Bug] [--assigned-to WHO] [--top N]`
   (`--state`/`--type` are repeatable).
 - **Search issues**: `devops-utils azdo search --project {project} "TEXT"`.

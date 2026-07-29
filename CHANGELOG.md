@@ -7,17 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`azdo get --full`.** Adds `rev` and a `fields` map of every raw field, keyed
+  by reference name, on top of the trimmed shape — the way to read
+  `System.Description`, `Microsoft.VSTS.Scheduling.*` dates, or a `Custom.*`
+  value without hand-rolling a REST call. Custom fields have been *writable*
+  since 0.7.0 (`--field NAME=VALUE`) but not readable; that asymmetry is gone.
+  Composes with `--relations`; both come out of the response body already
+  fetched, so there is no extra request and no REST `fields=` selector (which
+  the server rejects alongside `$expand`). `list`/`search` stay trimmed by
+  design. Also `azdo_get_work_item(..., full=True)` on the MCP/agent tools.
+
 ### Fixed
 
 - **`UnicodeEncodeError` on Windows when CLI output is redirected.** A piped or
   redirected stdout defaults to the ANSI code page (`cp1252`), so echoing a
   work-item title containing `←`/`→` — or the CLI's own `(dry run — not
-  applied)` — crashed the command mid-write. The root `devops-utils` group now
-  reconfigures stdout/stderr to UTF-8 with `errors="backslashreplace"`
-  (`devops_utils.cli.encoding`), so unencodable characters degrade to an escape
-  sequence instead of raising.
+  applied)` — crashed the command mid-write. stdout/stderr are now reconfigured
+  to UTF-8 with `errors="backslashreplace"` (`devops_utils.core.encoding`), so
+  unencodable characters degrade to an escape sequence instead of raising.
+- **No shell preamble is needed for accented text.** The hardening now runs from
+  the `devops-utils` console script *before* Click parses `argv`, so eager
+  options (`--help`, `--version`) that print during parsing are covered too, and
+  `devops-utils-mcp` hardens its stderr log channel (its stdout/stdin carry
+  framed JSON-RPC that the MCP SDK owns and must stay byte-exact, so those are
+  deliberately left alone). `sanitize` also pins `encoding="utf-8"` on its
+  manifest read and write instead of inheriting the platform default — reading a
+  UTF-8 manifest as `cp1252` silently mojibaked non-secret values and wrote the
+  corruption back out. Together these replace the
+  `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8` exports callers were using. (`chcp
+  65001` was never part of the fix: a real Windows console writes through
+  `WriteConsoleW` regardless of code page — only *redirected* streams ever
+  crashed.)
+
+  A `devops-utils` shim installed before this release has the old entry point
+  baked in; re-run `uv tool upgrade devops-utils` (or `pip install -e .`) to
+  pick up the pre-parse hardening.
 
 ### Changed
+
+- **Write previews moved to stderr.** `azdo` write commands printed
+  `About to write: {...}`, the `(dry run — not applied)` marker, and the
+  `Apply this change?` prompt on stdout, ahead of the JSON result — so
+  `azdo create … | jq` failed with `Invalid numeric literal` *after the write
+  had already happened*, which invited double-creates on retry. stdout is now
+  the JSON result and nothing else; `--dry-run` and a declined prompt leave it
+  empty.
 
 - **Skills and subagents now prescribe the `Epic → Feature → User Story`
   backlog pattern.** `azure-devops-work-items` gains a hierarchy section

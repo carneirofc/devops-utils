@@ -38,6 +38,10 @@ with a missing-env-var error, report that instead of retrying.
 - **Detail / relations**: `azdo_get_work_item(id, relations=True)` returns
   parent/child links, related items, commits/PRs/branches/builds, and
   attachments — use it to trace how an item connects to code and pipelines.
+- **Full field body**: `azdo_get_work_item(id, full=True)` adds `rev` and a
+  `fields` map of every raw field — the description, scheduling dates, and
+  `Custom.*` values that the trimmed summary omits. Reach for it when the
+  question is about content rather than status, one item at a time.
 
 ## Hierarchy: Epic → Feature → User Story
 

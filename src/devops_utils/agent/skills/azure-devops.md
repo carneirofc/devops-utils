@@ -68,7 +68,7 @@ surface-agnostic.
 | `azdo_code_search` | `azdo code-search` | `project`, `text`, `repo`, `branch`, `top` |
 | `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `area_path`, `iteration_path`, `top: int` |
 | `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `area_path`, `iteration_path`, `top` |
-| `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool` |
+| `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool`, `full: bool` |
 | `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent`, `fields: dict` |
 | `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description`, `area_path`, `iteration_path`, `fields: dict` |
 | `azdo_comment_work_item` | `azdo comment` | `work_item_id: int`, `text: str` |
@@ -188,7 +188,7 @@ CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T .
 ### Get one work item
 
 ```python
-azdo_get_work_item(work_item_id: int, relations: bool = False) -> dict
+azdo_get_work_item(work_item_id: int, relations: bool = False, full: bool = False) -> dict
 ```
 
 With `relations=True` the result carries a `relations` list of
@@ -196,7 +196,15 @@ With `relations=True` the result carries a `relations` list of
 `predecessor`, `successor`, `work_item`) carry the target work-item id;
 `hyperlink`/`attachment`/`commit`/`pull_request`/`branch`/`build` carry the URL.
 
-CLI: `devops-utils azdo get WORK_ITEM_ID [--relations]`
+With `full=True` it also carries `rev` and a `fields` map of **every** raw
+field, keyed by reference name — this is how you read a description
+(`System.Description`, HTML), a scheduling date
+(`Microsoft.VSTS.Scheduling.DueDate` / `.TargetDate` / `.StartDate`), or a
+`Custom.*` field, none of which are in the trimmed shape. The two flags
+compose. `list`/`search` are always trimmed by design: find ids there, then
+`full` the one item you care about.
+
+CLI: `devops-utils azdo get WORK_ITEM_ID [--relations] [--full]`
 
 ### Create a work item
 
@@ -552,7 +560,9 @@ Every work-item op returns a trimmed dict (`_trim` in `workitems.py`):
 ```
 
 `list`/`search` return a `list` of these; `get`/`create`/`comment`/`tag`/`link`/
-`unlink`/`attach` return a single one. `azdo_list_repositories` returns its own
+`unlink`/`attach` return a single one. `azdo_get_work_item(..., full=True)` adds
+`rev` and a `fields` map of every raw field on top — the only way to read
+anything the nine keys above drop. `azdo_list_repositories` returns its own
 `{id, name, project, default_branch, web_url}` shape, builds return
 `{id, number, definition, status, result, branch, requested_for, queue_time,
 finish_time, web_url}`, `azdo_tag_build` a plain tag list, and

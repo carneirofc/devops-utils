@@ -420,6 +420,59 @@ def test_get_without_relations_omits_key_and_expand():
     assert "$expand" not in reqs[0].url.params
 
 
+_FULL_FIELDS = {
+    "System.WorkItemType": "Bug",
+    "System.Title": "ação",
+    "System.Description": "<p>descrição</p>",
+    "Microsoft.VSTS.Scheduling.DueDate": "2026-08-01T00:00:00Z",
+    "Custom.RiskLevel": "High",
+}
+
+
+def _full_handler(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, json={"id": 7, "url": "u", "fields": _FULL_FIELDS})
+
+
+def test_get_full_returns_raw_fields_alongside_trimmed_keys():
+    item = get_work_item(_client(_full_handler), 7, full=True)
+    assert item["fields"] == _FULL_FIELDS
+    # The trimmed shape is untouched — existing callers keep working.
+    assert item["title"] == "ação"
+    assert item["type"] == "Bug"
+
+
+def test_get_without_full_omits_fields_key():
+    assert "fields" not in get_work_item(_client(_full_handler), 7)
+
+
+def test_get_full_composes_with_relations():
+    reqs: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        reqs.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "id": 7,
+                "fields": _FULL_FIELDS,
+                "relations": [
+                    {
+                        "rel": "System.LinkTypes.Hierarchy-Reverse",
+                        "url": f"{ORG}/_apis/wit/workItems/3",
+                    }
+                ],
+            },
+        )
+
+    item = get_work_item(_client(handler), 7, relations=True, full=True)
+    assert reqs[0].url.params["$expand"] == "relations"
+    # No mutually exclusive ``fields=`` selector is sent — both come from the
+    # same response body.
+    assert "fields" not in reqs[0].url.params
+    assert item["fields"]["Custom.RiskLevel"] == "High"
+    assert item["relations"][0]["target"] == 3
+
+
 def test_remove_parent_link_by_index_with_test_guard():
     calls: list[httpx.Request] = []
 
@@ -660,6 +713,32 @@ def test_pr_comment_replies_to_existing_thread():
         "commentType": 1,
     }
     assert result == {"thread_id": 147, "comment_id": 2, "status": None}
+
+
+def test_list_work_items_stay_trimmed():
+    """``full`` must never leak into batch responses — one item's worth of raw
+    fields is useful, fifty descriptions per ``list`` call is a token disaster.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/wiql"):
+            return httpx.Response(200, json={"workItems": [{"id": 7}]})
+        return httpx.Response(
+            200, json={"value": [{"id": 7, "url": "u", "fields": _FULL_FIELDS}]}
+        )
+
+    items = list_work_items(_client(handler), "Proj")
+    assert set(items[0]) == {
+        "id",
+        "type",
+        "title",
+        "state",
+        "assigned_to",
+        "tags",
+        "area_path",
+        "iteration_path",
+        "url",
+    }
 
 
 # --------------------------------------------------------------------------- #

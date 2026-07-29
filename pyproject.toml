@@ -40,7 +40,7 @@ docs = ["sphinx", "sphinx_rtd_theme"]
 all = ["mcp", "textual", "PySide6", "httpx"]
 
 [project.scripts]
-devops-utils = "devops_utils.cli.main:cli"
+devops-utils = "devops_utils.cli.main:main"
 devops-utils-mcp = "devops_utils.mcp.server:main"
 
 [dependency-groups]

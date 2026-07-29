@@ -27,14 +27,20 @@ def _echo(result: Any) -> None:
 
 
 def _confirm_or_dry_run(preview: dict[str, Any], *, yes: bool, dry_run: bool) -> bool:
-    """Show the pending write; return True if the caller should proceed."""
-    click.echo(f"About to write: {json.dumps(preview, ensure_ascii=False)}")
+    """Show the pending write; return True if the caller should proceed.
+
+    The preview, the dry-run marker, and the prompt all go to **stderr** so
+    stdout carries nothing but the command's JSON result — ``azdo create … |
+    jq`` has to keep working, and a parse error there is especially nasty
+    because the write has already happened by then.
+    """
+    click.echo(f"About to write: {json.dumps(preview, ensure_ascii=False)}", err=True)
     if dry_run:
-        click.echo("(dry run — not applied)")
+        click.echo("(dry run — not applied)", err=True)
         return False
     if yes or skip_confirmation():
         return True
-    return click.confirm("Apply this change?", default=False)
+    return click.confirm("Apply this change?", default=False, err=True)
 
 
 @click.group("azdo")
@@ -186,9 +192,15 @@ def search(
     is_flag=True,
     help="Include relations (parent/child links, hyperlinks, attachments).",
 )
-def get(work_item_id: int, relations: bool) -> None:
+@click.option(
+    "--full",
+    is_flag=True,
+    help="Include every raw field (description, scheduling dates, custom "
+    "fields) under a 'fields' key keyed by reference name, plus 'rev'.",
+)
+def get(work_item_id: int, relations: bool, full: bool) -> None:
     """Fetch a single work item by id."""
-    _echo(tools.azdo_get_work_item(work_item_id, relations=relations))
+    _echo(tools.azdo_get_work_item(work_item_id, relations=relations, full=full))
 
 
 @azdo.command("create")

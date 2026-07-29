@@ -14,6 +14,7 @@ import yaml
 from devops_utils.agent import tools as agent_tools
 from devops_utils.core.confirmation import SKIP_CONFIRMATION_ENV
 from devops_utils.core.confirmation import skip_confirmation as _skip_confirmation
+from devops_utils.core.encoding import configure_stderr
 from devops_utils.core.sanitizer import sanitize as _sanitize
 
 # All write tools gated behind a human confirmation (elicitation) prompt. Kept
@@ -177,7 +178,15 @@ def _build_server():
 
 
 def main() -> None:
-    """Entry point for the ``devops-utils-mcp`` console script (stdio transport)."""
+    """Entry point for the ``devops-utils-mcp`` console script (stdio transport).
+
+    Only stderr — the server's log channel — is hardened. stdout and stdin
+    carry framed JSON-RPC that the MCP SDK owns and already writes as UTF-8
+    bytes; reconfiguring them here would layer a second wrapper over the same
+    handles and, worse, let ``backslashreplace`` corrupt a frame instead of
+    letting the serializer escape it.
+    """
+    configure_stderr()
     _build_server().run()
 
 

@@ -76,6 +76,7 @@ devops-utils azdo list --project MyProject --state Active --type Bug
 devops-utils azdo list --project MyProject --mine --tag backend   # @Me macro
 devops-utils azdo list --project MyProject --iteration-path 'MyProject\Sprint 3'
 devops-utils azdo search --project MyProject "login timeout"
+devops-utils azdo get 42 --full        # every raw field: description, dates, Custom.*
 devops-utils azdo create --project MyProject --type Task --title "Fix flaky test" \
   --area-path 'MyProject\Payments' --field Custom.RiskLevel=High
 devops-utils azdo update 42 --state Closed --assigned-to dev@example.com
@@ -99,6 +100,11 @@ devops-utils azdo code-search "connection pool" --project MyProject
 
 `code-search` uses the Search extension (always available on cloud; on-prem
 needs it installed — `files` is the portable fallback).
+
+Results are JSON on stdout and nothing else — write commands send their preview
+and confirmation prompt to stderr — so `devops-utils azdo get 42 --full | jq`
+works. Output is UTF-8 whatever the shell's code page, so accented text needs no
+`chcp` / `PYTHONUTF8` preamble.
 
 The same operations are exposed as MCP tools (`azdo_*`) and framework-agnostic
 agent callables in `devops_utils.agent.tools`, all reading the env vars above.
