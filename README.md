@@ -17,6 +17,26 @@ Requires Python 3.12+.
 Install
 -------
 
+**Recommended — no install at all.** With [uv](https://docs.astral.sh/uv/),
+`uvx` fetches the package (and the extra you name) into a cached, throwaway
+environment per invocation:
+
+```bash
+uvx --from "devops-utils[azure]" devops-utils azdo list --project MyProject --mine
+uvx --from "devops-utils[mcp]" devops-utils-mcp          # MCP server
+uvx --from "devops-utils[all]" devops-utils --help       # every surface
+```
+
+The extra is not optional: `azdo` needs `[azure]`, the MCP server needs
+`[mcp]`, and `[all]` covers everything. Pin it for reproducibility
+(`"devops-utils[azure]==0.8.0"`). Worth an alias if you use it often:
+
+```bash
+alias devops-utils='uvx --from "devops-utils[all]" devops-utils'
+```
+
+Or install it the usual way:
+
 ```bash
 # core + CLI
 pip install devops-utils
@@ -27,9 +47,12 @@ pip install "devops-utils[tui]"   # Textual TUI
 pip install "devops-utils[qt]"    # PySide6 desktop UI
 pip install "devops-utils[azure]" # Azure DevOps work-item tools
 pip install "devops-utils[all]"   # everything
+
+# or as an isolated, always-on-PATH tool
+uv tool install "devops-utils[all]"
 ```
 
-For development this project uses [uv](https://docs.astral.sh/uv/):
+For development this project uses uv:
 
 ```bash
 uv sync --all-extras --dev
@@ -51,6 +74,8 @@ Run the MCP server (requires the `mcp` extra):
 
 ```bash
 devops-utils-mcp
+# or, without installing:
+uvx --from "devops-utils[mcp]" devops-utils-mcp
 ```
 
 
@@ -121,6 +146,8 @@ Azure DevOps env scaffold. Defaults target Claude Code at user scope
 ```bash
 # Everything, for the current user (skills + agents + MCP server + env scaffold)
 devops-utils setup all
+# same thing without installing:
+uvx --from "devops-utils[all]" devops-utils setup all
 
 # Scope to the current repo (./.claude, ./.mcp.json)
 devops-utils setup all --project
@@ -130,6 +157,22 @@ devops-utils setup skills --dest ./agent-skills
 devops-utils setup agents          # ~/.claude/agents/*.md
 devops-utils setup mcp --dest .
 devops-utils setup env
+```
+
+`setup mcp` registers the server as `"command": "devops-utils-mcp"`, which
+assumes it is on `PATH`. To keep the zero-install path instead, point the entry
+at `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "devops-utils": {
+      "command": "uvx",
+      "args": ["--from", "devops-utils[mcp]", "devops-utils-mcp"],
+      "env": {}
+    }
+  }
+}
 ```
 
 `setup agents` installs three **read-only** Azure DevOps research subagents
@@ -163,8 +206,9 @@ marketplace:
 
 The plugin ships only the skills and agents. Their Azure DevOps **MCP tools**
 (`mcp__devops-utils__azdo_*`) still come from the `devops-utils-mcp` server, so a
-working setup also needs `pip install "devops-utils[mcp]"` and
-`devops-utils setup mcp`. MCP is intentionally not bundled in the plugin: a
+working setup also needs that server registered — either
+`pip install "devops-utils[mcp]"` plus `devops-utils setup mcp`, or the `uvx`
+entry shown under *Set up an agent*. MCP is intentionally not bundled in the plugin: a
 plugin-scoped server would rename those tools and break the agents that call
 them.
 

@@ -5,6 +5,11 @@ Issues and PRDs for this repo live as Azure DevOps work items in the
 same operations are exposed as `azdo_*` MCP tools by the `devops-utils-mcp`
 server — prefer those when available.
 
+If `devops-utils` is not on `PATH`, run it through `uvx` (assume `uv` is
+installed): `uvx --from "devops-utils[azure]" devops-utils azdo …`. The
+`[azure]` extra is required; every command below then works unchanged behind
+that prefix.
+
 ## Configuration
 
 Config comes only from environment variables (no machine credentials are read):

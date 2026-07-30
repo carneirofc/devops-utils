@@ -59,6 +59,24 @@ Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
 `workitems.py`, `repos.py`, `builds.py`, `pullrequests.py`) and is
 surface-agnostic.
 
+### Running the CLI without installing it (uvx)
+
+Assume `uv` is available. If `devops-utils` is not on `PATH` — or you don't
+want it installed — every `devops-utils …` command in this skill runs unchanged
+behind `uvx`, which fetches the package and its extra per invocation:
+
+```bash
+uvx --from "devops-utils[azure]" devops-utils azdo list --project Contoso --mine
+uvx --from "devops-utils[mcp]" devops-utils-mcp        # the MCP server itself
+```
+
+The extra is mandatory: `azdo` needs `[azure]`, the MCP server needs `[mcp]`,
+`[all]` covers everything. Pin it (`"devops-utils[azure]==0.8.0"`) when a run
+has to be reproducible. Examples below are written bare (`devops-utils azdo …`)
+— prefix them with `uvx --from "devops-utils[azure]"` when the command is not
+installed. `uv tool install "devops-utils[all]"` makes the bare form work
+permanently.
+
 ## Operations at a glance
 
 | agent callable | CLI | key typed params |
@@ -69,8 +87,8 @@ surface-agnostic.
 | `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `area_path`, `iteration_path`, `top: int` |
 | `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `area_path`, `iteration_path`, `top` |
 | `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool`, `full: bool` |
-| `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent`, `fields: dict` |
-| `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description`, `area_path`, `iteration_path`, `fields: dict` |
+| `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent`, `fields: dict` (dates/effort/priority — see *Scheduling*) |
+| `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description`, `area_path`, `iteration_path`, `fields: dict` (dates/effort/priority — see *Scheduling*) |
 | `azdo_comment_work_item` | `azdo comment` | `work_item_id: int`, `text: str` |
 | `azdo_set_work_item_tags` | `azdo tag` | `work_item_id`, `tags: list[str]`, `mode: "add" \| "replace"` |
 | `azdo_add_work_item_link` | `azdo link` | `work_item_id`, `kind`, `value`, `project`, `repo`, `comment` |
@@ -326,17 +344,40 @@ name, e.g. `Contoso\Team A` / `Contoso\Sprint 3`.
   there is no exact-node-only variant.
 
 ```bash
+# create straight into a team area and a sprint
+devops-utils azdo create --project Contoso --type "User Story" \
+  --title "Guest checkout" --parent 1400 \
+  --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3'
+
 # everything the Payments team has open in the current sprint
 devops-utils azdo list --project Contoso \
   --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3' \
   --state Active --state New
 
-# move an item to another sprint
-devops-utils azdo update 1421 --iteration-path 'Contoso\Sprint 4'
+# move an item to another team AND another sprint in one patch
+devops-utils azdo update 1421 \
+  --area-path 'Contoso\Payments\Checkout' --iteration-path 'Contoso\Sprint 4'
 ```
 
-An invalid path is rejected by the server — list an existing item and read its
-values if a write fails with a classification-node error.
+```python
+tools.azdo_create_work_item(
+    "Contoso", "User Story", "Guest checkout", parent=1400,
+    area_path="Contoso\\Payments", iteration_path="Contoso\\Sprint 3",
+)
+tools.azdo_list_work_items(
+    "Contoso",
+    area_path="Contoso\\Payments",        # includes Contoso\Payments\Checkout
+    iteration_path="Contoso\\Sprint 3",
+    states=["New", "Active"],
+)
+tools.azdo_update_work_item(1421, iteration_path="Contoso\\Sprint 4")
+```
+
+Backslashes: single-quote the path in bash **and** PowerShell; in Python source
+either escape it (`"Contoso\\Sprint 3"`) or use a raw string
+(`r"Contoso\Sprint 3"`). An invalid path is rejected by the server — read an
+existing item's `area_path`/`iteration_path` (they are in the trimmed shape) if
+a write fails with a classification-node error.
 
 ### Custom fields
 
@@ -362,6 +403,94 @@ display label ("Risk Level") — reference names are process/org specific, so
 check the project's process configuration if a write is rejected. Values pass
 through as-is (string/number/bool). `fields` is applied *after* the named
 params, so a key targeting e.g. `System.AreaPath` overrides `area_path`.
+
+The CLI parses `--field NAME=VALUE` into **strings** — `--field
+Microsoft.VSTS.Common.Priority=1` sends `"1"`, which the server coerces for
+numeric fields. The Python/MCP `fields` dict preserves real JSON types; use it
+(`{"Microsoft.VSTS.Common.Priority": 1}`) if a numeric or boolean write is
+rejected.
+
+### Scheduling: start date, target date, due date, effort
+
+**No named parameter covers dates or estimates** — they are ordinary fields, so
+they go through `fields` / `--field` with their reference names:
+
+| field | reference name | type | usually on |
+| --- | --- | --- | --- |
+| Start Date | `Microsoft.VSTS.Scheduling.StartDate` | DateTime | Epic, Feature |
+| Target Date | `Microsoft.VSTS.Scheduling.TargetDate` | DateTime | Epic, Feature |
+| Due Date | `Microsoft.VSTS.Scheduling.DueDate` | DateTime | Bug, Issue, Task |
+| Finish Date | `Microsoft.VSTS.Scheduling.FinishDate` | DateTime | Task (Agile/CMMI) |
+| Effort | `Microsoft.VSTS.Scheduling.Effort` | Double | Scrum PBI / Feature / Epic |
+| Story Points | `Microsoft.VSTS.Scheduling.StoryPoints` | Double | Agile User Story |
+| Original Estimate | `Microsoft.VSTS.Scheduling.OriginalEstimate` | Double | Task |
+| Remaining Work | `Microsoft.VSTS.Scheduling.RemainingWork` | Double | Task |
+| Completed Work | `Microsoft.VSTS.Scheduling.CompletedWork` | Double | Task |
+| Priority | `Microsoft.VSTS.Common.Priority` | Integer | most types |
+| Severity | `Microsoft.VSTS.Common.Severity` | String | Bug |
+| Business Value | `Microsoft.VSTS.Common.BusinessValue` | Integer | Epic / Feature / Story |
+| Acceptance Criteria | `Microsoft.VSTS.Common.AcceptanceCriteria` | HTML | User Story / PBI |
+| Repro Steps | `Microsoft.VSTS.TCM.ReproSteps` | HTML | Bug |
+
+Dates are **ISO 8601** — `"2026-08-03"` or `"2026-08-03T00:00:00Z"`. Azure
+DevOps stores them in UTC, so a bare date is midnight UTC. **Start Date +
+Target Date are what Delivery Plans render**, which is why Epics and Features
+carry that pair while a Task carries Due/Finish Date instead.
+
+Which of these exist on a given type is process-template-specific (Agile vs
+Scrum vs CMMI, plus per-org customisation). A field the type doesn't have comes
+back as an unknown-field error on the patch — read a comparable existing item
+with `azdo get <id> --full` and use the reference names it actually returns.
+
+```bash
+# schedule an Epic: start now, land end of quarter
+devops-utils azdo update 1400 \
+  --field Microsoft.VSTS.Scheduling.StartDate=2026-08-03 \
+  --field Microsoft.VSTS.Scheduling.TargetDate=2026-09-30
+
+# create a Feature already scheduled, sized, and in a sprint
+devops-utils azdo create --project Contoso --type Feature \
+  --title "Guest checkout" --parent 1400 \
+  --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3' \
+  --field Microsoft.VSTS.Scheduling.StartDate=2026-08-03 \
+  --field Microsoft.VSTS.Scheduling.TargetDate=2026-08-31 \
+  --field Microsoft.VSTS.Scheduling.Effort=13
+
+# a Bug due Friday, priority 1
+devops-utils azdo update 1421 \
+  --field Microsoft.VSTS.Scheduling.DueDate=2026-08-07 \
+  --field Microsoft.VSTS.Common.Priority=1
+
+# read the dates back (they are NOT in the trimmed shape)
+devops-utils azdo get 1400 --full | jq '.fields
+  | {start: ."Microsoft.VSTS.Scheduling.StartDate",
+     target: ."Microsoft.VSTS.Scheduling.TargetDate"}'
+```
+
+```python
+tools.azdo_update_work_item(
+    1400,
+    fields={
+        "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
+        "Microsoft.VSTS.Scheduling.TargetDate": "2026-09-30",
+    },
+)
+feature = tools.azdo_create_work_item(
+    "Contoso", "Feature", "Guest checkout", parent=1400,
+    area_path="Contoso\\Payments", iteration_path="Contoso\\Sprint 3",
+    fields={
+        "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
+        "Microsoft.VSTS.Scheduling.TargetDate": "2026-08-31",
+        "Microsoft.VSTS.Scheduling.Effort": 13,      # real number, not "13"
+    },
+)
+dates = tools.azdo_get_work_item(1400, full=True)["fields"]
+dates["Microsoft.VSTS.Scheduling.TargetDate"]        # '2026-09-30T00:00:00Z'
+```
+
+Always confirm a scheduling write with `azdo_get_work_item(id, full=True)` —
+`create`/`update` return the **trimmed** shape, which drops every
+`Microsoft.VSTS.*` field, so their return value cannot tell you the date landed.
 
 ### Comment on a work item
 
@@ -443,6 +572,54 @@ dependency maps).
 An unknown `kind`, or a repo kind missing `project`/`repo`, raises `ValueError`.
 
 CLI: `devops-utils azdo link WORK_ITEM_ID --kind KIND --value V [--project P] [--repo R] [--comment C]`
+
+One example per kind — `commit`/`pull_request`/`branch` need `--project` and
+`--repo`; nothing else does:
+
+```bash
+# code artifacts (project + repo required)
+devops-utils azdo link 1421 --kind commit --value 9fceb02 \
+  --project Contoso --repo web-app --comment "Fixed here"
+devops-utils azdo link 1421 --kind pull_request --value 88 \
+  --project Contoso --repo web-app
+devops-utils azdo link 1421 --kind branch --value feature/guest-checkout \
+  --project Contoso --repo web-app
+
+# build — the artifact URI carries only the id, so no project/repo
+devops-utils azdo link 1421 --kind build --value 20345
+
+# work-item graph
+devops-utils azdo link 1421 --kind parent --value 1400        # 1400 is now the parent
+devops-utils azdo link 1400 --kind child --value 1421         # same edge, other direction
+devops-utils azdo link 1421 --kind predecessor --value 1399   # 1421 is blocked by 1399
+devops-utils azdo link 1421 --kind successor --value 1450     # 1450 waits on 1421
+devops-utils azdo link 1421 --kind work_item --value 1500     # plain "Related"
+
+# external URL
+devops-utils azdo link 1421 --kind hyperlink \
+  --value 'https://status.contoso.com/incidents/42' --comment "Incident"
+
+# re-parent: unlink the old edge, then link the new one
+devops-utils azdo unlink 1421 --kind parent --value 1400
+devops-utils azdo link   1421 --kind parent --value 1402
+
+# verify — relations are not in the trimmed shape
+devops-utils azdo get 1421 --relations | jq '.relations'
+```
+
+```python
+tools.azdo_add_work_item_link(
+    1421, "pull_request", "88", project="Contoso", repo="web-app", comment="Fix",
+)
+tools.azdo_add_work_item_link(1421, "build", "20345")
+tools.azdo_add_work_item_link(1421, "predecessor", "1399")
+tools.azdo_add_work_item_link(
+    1421, "hyperlink", "https://status.contoso.com/incidents/42",
+)
+tools.azdo_get_work_item(1421, relations=True)["relations"]
+# [{'kind': 'pull_request', 'target': 'vstfs:///Git/PullRequestId/...', 'name': 'Pull Request', 'comment': 'Fix'},
+#  {'kind': 'predecessor', 'target': 1399}, ...]
+```
 
 ### Remove a link
 
@@ -603,6 +780,83 @@ tools.azdo_add_work_item_link(
     wi["id"], "pull_request", "88",
     project="Contoso", repo="web-app", comment="Fix",
 )
+```
+
+## Worked example: a scheduled Epic → Feature → Story
+
+Everything the Boards UI exposes on the right-hand pane — area, iteration,
+dates, effort, links — set from one script. Named params carry area/iteration;
+`fields` carries the scheduling dates.
+
+```python
+from devops_utils.agent import tools
+
+AREA = "Contoso\\Payments"
+
+epic = tools.azdo_create_work_item(
+    "Contoso", "Epic", "Self-service checkout",
+    area_path=AREA,
+    fields={
+        "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
+        "Microsoft.VSTS.Scheduling.TargetDate": "2026-12-18",   # a whole quarter
+        "Microsoft.VSTS.Common.BusinessValue": 80,
+    },
+)
+
+feature = tools.azdo_create_work_item(
+    "Contoso", "Feature", "Guest checkout", parent=epic["id"],
+    area_path=AREA, iteration_path="Contoso\\Sprint 3",
+    fields={
+        "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
+        "Microsoft.VSTS.Scheduling.TargetDate": "2026-08-31",
+        "Microsoft.VSTS.Scheduling.Effort": 13,
+    },
+)
+
+story = tools.azdo_create_work_item(
+    "Contoso", "User Story",
+    "As a guest I can pay without an account", parent=feature["id"],
+    area_path=AREA, iteration_path="Contoso\\Sprint 3",
+    assigned_to="dev@contoso.com", tags=["checkout"],
+    fields={
+        "Microsoft.VSTS.Scheduling.StoryPoints": 5,
+        "Microsoft.VSTS.Common.AcceptanceCriteria":
+            "<ul><li>Order completes with an email only</li></ul>",
+    },
+)
+
+# wire it to the code and to the work that must land first
+tools.azdo_add_work_item_link(
+    story["id"], "pull_request", "88", project="Contoso", repo="web-app",
+)
+tools.azdo_add_work_item_link(story["id"], "predecessor", "1399")
+
+# verify: dates and relations both need the non-trimmed reads
+plan = tools.azdo_get_work_item(feature["id"], relations=True, full=True)
+plan["fields"]["Microsoft.VSTS.Scheduling.TargetDate"]   # '2026-08-31T00:00:00Z'
+plan["relations"]                                        # parent → epic id
+```
+
+```bash
+epic=$(devops-utils azdo create --project Contoso --type Epic \
+  --title "Self-service checkout" --area-path 'Contoso\Payments' \
+  --field Microsoft.VSTS.Scheduling.StartDate=2026-08-03 \
+  --field Microsoft.VSTS.Scheduling.TargetDate=2026-12-18 -y | jq -r .id)
+
+feature=$(devops-utils azdo create --project Contoso --type Feature \
+  --title "Guest checkout" --parent "$epic" \
+  --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3' \
+  --field Microsoft.VSTS.Scheduling.StartDate=2026-08-03 \
+  --field Microsoft.VSTS.Scheduling.TargetDate=2026-08-31 \
+  --field Microsoft.VSTS.Scheduling.Effort=13 -y | jq -r .id)
+
+devops-utils azdo create --project Contoso --type "User Story" \
+  --title "As a guest I can pay without an account" --parent "$feature" \
+  --area-path 'Contoso\Payments' --iteration-path 'Contoso\Sprint 3' \
+  --assigned-to dev@contoso.com --tag checkout \
+  --field Microsoft.VSTS.Scheduling.StoryPoints=5
+
+devops-utils azdo get "$feature" --relations --full
 ```
 
 ## On-prem notes

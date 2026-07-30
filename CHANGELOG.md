@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Skill docs cover every settable work-item field.** The bundled
+  `azure-devops-work-items` skill (and the `docs/agents/azure-devops.md`
+  reference) gained a *Scheduling* section documenting the fields no named
+  parameter reaches — `Microsoft.VSTS.Scheduling.StartDate`/`.TargetDate`
+  (the Delivery Plans pair), `.DueDate`, `.FinishDate`, `.Effort`,
+  `.StoryPoints`, `.OriginalEstimate`/`.RemainingWork`/`.CompletedWork`, plus
+  `Microsoft.VSTS.Common.Priority`/`.Severity`/`.BusinessValue` — with their
+  types, the ISO-8601 value format, and CLI + Python examples. Also: a
+  per-kind example for every `link` kind (including the re-parent
+  unlink/link pair), create-time area/iteration examples, a full
+  "scheduled Epic → Feature → Story" walkthrough, and an explicit note that
+  `--field NAME=VALUE` sends strings while the `fields` dict preserves JSON
+  types. Committed plugin tree regenerated to match.
+- **`uvx` is the documented default way to run the tools.** README leads with
+  `uvx --from "devops-utils[azure]" devops-utils azdo …` (and
+  `uvx --from "devops-utils[mcp]" devops-utils-mcp`) before `pip install`,
+  covers `uv tool install` and the `uvx`-based `mcpServers` entry to use
+  instead of the `devops-utils-mcp`-on-`PATH` one that `setup mcp` writes. The
+  bundled skills (`azure-devops-work-items`, `azure-devops-research`) and the
+  Azure DevOps tracker template say the same, so an agent whose `PATH` has no
+  `devops-utils` knows to prefix its commands rather than give up. The extra is
+  called out as mandatory in each spot.
+
 ## [0.8.0] - 2026-07-29
 
 ### Added

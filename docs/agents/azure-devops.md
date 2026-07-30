@@ -58,6 +58,13 @@ Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
 `workitems.py`, `repos.py`, `builds.py`, `pullrequests.py`) and is
 surface-agnostic.
 
+Nothing has to be installed to use the CLI or the MCP server — with `uv`
+present, `uvx` resolves the package and its extra per invocation:
+`uvx --from "devops-utils[azure]" devops-utils azdo …` and
+`uvx --from "devops-utils[mcp]" devops-utils-mcp`. The extra is mandatory
+(`[azure]` for `azdo`, `[mcp]` for the server, `[all]` for everything);
+`uv tool install "devops-utils[all]"` puts the bare commands on `PATH`.
+
 ## References (`link` / `azdo_add_work_item_link`)
 
 One entry point covers every reference kind:
@@ -127,6 +134,30 @@ process/org specific, so check the target project's process configuration.
 Read them back with `azdo get <id> --full` — custom fields used to be
 write-only, which made "did that patch land?" unanswerable without hitting REST
 by hand.
+
+The CLI's `--field NAME=VALUE` always yields a **string**; the `fields` dict on
+the `azdo_*` tools preserves real JSON types, which is the path to use when a
+numeric/boolean write is rejected.
+
+## Scheduling fields (start / target / due date, effort)
+
+There is no named parameter for dates or estimates — they are ordinary fields,
+set through `fields` / `--field` by reference name:
+`Microsoft.VSTS.Scheduling.StartDate`, `.TargetDate` (the pair Delivery Plans
+render, normally on Epic/Feature), `.DueDate`, `.FinishDate`, `.Effort`,
+`.StoryPoints`, `.OriginalEstimate`, `.RemainingWork`, `.CompletedWork`, plus
+`Microsoft.VSTS.Common.Priority`/`.Severity`/`.BusinessValue`. Values are ISO
+8601 (`2026-08-03` or `2026-08-03T00:00:00Z`, stored UTC).
+
+```bash
+devops-utils azdo update 1400 \
+  --field Microsoft.VSTS.Scheduling.StartDate=2026-08-03 \
+  --field Microsoft.VSTS.Scheduling.TargetDate=2026-09-30
+```
+
+Which fields a type has is process-template-specific; an absent one fails the
+patch with an unknown-field error. `create`/`update` return the trimmed shape,
+which drops every `Microsoft.VSTS.*` key — confirm with `azdo get <id> --full`.
 
 ## Work-item research filters
 

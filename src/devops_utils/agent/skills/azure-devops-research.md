@@ -16,6 +16,13 @@ If the `devops-utils setup agents` subagents are installed
 delegating the corresponding playbook to them — they keep raw query results out
 of the main conversation.
 
+**CLI not installed?** Assume `uv` is present and run any `devops-utils …`
+command below through `uvx`, which resolves the package plus its extra per
+invocation — `uvx --from "devops-utils[azure]" devops-utils azdo list --project
+Contoso --mine`. The `[azure]` extra is required for `azdo`; `[all]` covers
+every surface. `uv tool install "devops-utils[all]"` makes the bare form work
+permanently.
+
 ## My pending work items
 
 - `azdo_list_work_items(project, assigned_to="@Me", states=[...])` — `@Me` is
