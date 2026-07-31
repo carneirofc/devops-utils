@@ -19,6 +19,7 @@ def test_bundled_skills_are_discoverable():
     names = {name for name, _filename, _text in install.iter_bundled_skills()}
     assert "azure-devops-work-items" in names
     assert "azure-devops-research" in names
+    assert "git-history-workitems" in names
     assert "sanitize-manifest" in names
 
 

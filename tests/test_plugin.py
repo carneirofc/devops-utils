@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIRS = (
     "azure-devops-work-items",
     "azure-devops-research",
+    "git-history-workitems",
     "sanitize-manifest",
 )
 AGENT_FILES = (

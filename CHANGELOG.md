@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **New bundled skill: `git-history-workitems`.** Mines the repository's git
+  history — commit messages, diffs, authors, tags — into per-year markdown
+  Feature / User Story files under `docs/workitems/history/<year>/`. Commits
+  are grouped into Features semantically (subsystem + goal, not temporal
+  proximity). The skill asks the user which language to write the content in
+  before reading any history, and each story records its **exhaustive** commit
+  list (hash + verbatim subject) so every commit can be linked to its work
+  item. Each item carries derived tags, `first_commit`/`last_commit`,
+  implementation status, the author roster, an `assigned_to` pick, and an
+  empty `azure_devops_id` slot so a later push via the
+  `azure-devops-work-items` skill can create Features, parent their User
+  Stories, link commits, and update instead of duplicating on re-runs. Ships
+  in `setup skills` and in the Claude Code plugin
+  (`devops-utils:git-history-workitems`); committed plugin tree regenerated.
+
 ## [0.8.1] - 2026-07-30
 
 ### Changed

@@ -33,6 +33,14 @@ filters, build definitions and run status, failure diagnosis via timeline and
 log tailing, and repo/file/code search.
 Skill: `src/devops_utils/agent/skills/azure-devops-research.md`.
 
+### Git history → work items
+
+Mine the repository's git history (messages, diffs, authors, tags) into
+per-year markdown Feature / User Story files — semantic grouping, commit
+ranges, derived tags, `assigned_to` from authors — ready to push to Azure
+DevOps via the work-items skill.
+Skill: `src/devops_utils/agent/skills/git-history-workitems.md`.
+
 ### Issue tracker
 
 Issues and PRDs are tracked in this repo's GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
