@@ -126,6 +126,59 @@ devops-utils azdo code-search "connection pool" --project MyProject
 `code-search` uses the Search extension (always available on cloud; on-prem
 needs it installed — `files` is the portable fallback).
 
+### Bulk operations: `azdo apply`
+
+`azdo apply` creates and updates many work items from one declarative
+**plan file** (YAML or JSON) — hierarchy, links, comments and all — with a
+single review-and-confirm step instead of one prompt per command:
+
+```bash
+devops-utils azdo apply plan.yml            # preview, confirm once, apply
+devops-utils azdo apply plan.yml --dry-run  # preview only, change nothing
+devops-utils azdo apply plan.yml --yes --out results.json
+cat plan.yml | devops-utils azdo apply -    # read the plan from stdin
+```
+
+A plan is a `project`, optional `defaults` merged into every item, and an
+ordered list of `items`. An item without `id` is a **create**; with `id` it is
+an **update**. Later items can point at earlier ones with `ref:<name>`:
+
+```yaml
+project: MyProject
+defaults:
+  area_path: MyProject\Platform
+  fields:                      # any field by reference name, incl. Custom.*
+    Custom.Source: git-history
+items:
+  - ref: feat                  # name other items can reference
+    type: Feature
+    title: Payment retries
+    state: Closed              # applied after create (state machines allow it)
+    tags: [payments, backend]
+  - type: User Story
+    title: Retry failed captures
+    parent: ref:feat           # parented under the feature created above
+    assigned_to: dev@example.com
+    links:
+      - {kind: commit, repo: MyRepo, value: 0a1b2c3d}
+      - {kind: hyperlink, value: "https://wiki/retries"}
+    comments: ["Imported from git history."]
+  - id: 42                     # existing item -> update
+    state: Resolved
+    fields: {Custom.RiskLevel: Low}
+```
+
+The schema is deliberately loose: named keys cover the common fields, anything
+else goes under `fields:` by reference name (unknown top-level keys produce a
+warning in the preview, not an error). All of an item's links are sent in one
+request; failures don't stop the run (dependents of a failed `ref` fail with a
+clear message; use `--stop-on-error` to halt instead). Per-item results —
+`created` / `updated` / `failed` / `skipped` plus the new ids — are printed as
+JSON on stdout, and the exit code is non-zero if anything failed.
+
+The same engine is exposed as the `azdo_apply_plan` MCP/agent tool, gated by
+the usual human confirmation.
+
 Results are JSON on stdout and nothing else — write commands send their preview
 and confirmation prompt to stderr — so `devops-utils azdo get 42 --full | jq`
 works. Output is UTF-8 whatever the shell's code page, so accented text needs no
