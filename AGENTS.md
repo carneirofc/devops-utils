@@ -3,9 +3,12 @@
 ## Installing skills
 
 `devops-utils setup` installs the bundled skills into an agent's skills
-directory, installs the bundled Claude Code subagents, registers the
-`devops-utils-mcp` server, and writes an Azure DevOps env scaffold. `setup all`
-does all four; `--project` scopes to the current repo instead of `~/.claude`.
+directory, installs the bundled Claude Code subagents, and writes an Azure
+DevOps env scaffold. `setup all` does those three; MCP-server registration is
+opt-in (`setup all --with-mcp` or `setup mcp`) and defaults to the
+zero-install `uvx --from "devops-utils[mcp]" devops-utils-mcp` launcher
+(`--no-uvx` writes the on-PATH console script instead). `--project` scopes to
+the current repo instead of `~/.claude`.
 See `src/devops_utils/cli/commands/setup.py`.
 
 `devops-utils setup agents` installs three read-only Azure DevOps research

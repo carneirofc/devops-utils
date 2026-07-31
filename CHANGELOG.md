@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`setup mcp` writes the `uvx` launcher by default.** The registered
+  `mcpServers` entry is now `uvx --from "devops-utils[mcp]" devops-utils-mcp`
+  (zero-install; only `uv` must be present) instead of the bare
+  `devops-utils-mcp` console script. `--no-uvx` restores the on-`PATH` entry
+  for installed-package setups.
+- **`setup all` no longer registers the MCP server by default.** The skills
+  drive everything through `uvx`, so most setups need no server entry;
+  registration is opt-in via `setup all --with-mcp` (or `setup mcp`). A skip
+  line in the output points at the flag.
+
 ### Added
 
 - **New bundled skill: `git-history-workitems`.** Mines the repository's git

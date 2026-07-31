@@ -1,9 +1,11 @@
 """``devops-utils setup`` — install skills and wire the MCP server into an agent.
 
-Copies the bundled agent skills into an agent's skills directory, registers the
-``devops-utils-mcp`` server in the agent's MCP config, and writes an Azure DevOps
-env-var scaffold. Defaults target Claude Code at user scope (``~/.claude``);
-``--project`` targets the current repo and ``--dest`` an arbitrary directory.
+Copies the bundled agent skills into an agent's skills directory, optionally
+registers the MCP server (``setup mcp`` / ``setup all --with-mcp``; the entry
+launches ``uvx --from "devops-utils[mcp]" devops-utils-mcp`` unless ``--no-uvx``),
+and writes an Azure DevOps env-var scaffold. Defaults target Claude Code at user
+scope (``~/.claude``); ``--project`` targets the current repo and ``--dest`` an
+arbitrary directory.
 
 ``setup tracker`` is the per-repo companion: it writes an Azure DevOps
 ``docs/agents/issue-tracker.md`` + ``triage-labels.md`` so mattpocock-style
@@ -93,15 +95,27 @@ def agents_cmd(project: bool, force: bool, dest: str | None) -> None:
 @setup.command("mcp")
 @_scope_options
 @click.option("--dest", default=None, help="Write .mcp.json into this directory.")
-def mcp_cmd(project: bool, force: bool, dest: str | None) -> None:
-    """Register the devops-utils MCP server in the agent's MCP config."""
+@click.option(
+    "--no-uvx",
+    is_flag=True,
+    help="Register the on-PATH devops-utils-mcp console script instead of the "
+    "zero-install uvx launcher (requires pip install 'devops-utils[mcp]').",
+)
+def mcp_cmd(project: bool, force: bool, dest: str | None, no_uvx: bool) -> None:
+    """Register the devops-utils MCP server in the agent's MCP config.
+
+    By default the entry launches the server through
+    ``uvx --from "devops-utils[mcp]" devops-utils-mcp`` — zero-install, only
+    ``uv`` needs to be present. ``--no-uvx`` writes the bare
+    ``devops-utils-mcp`` command for installed-package setups.
+    """
     if dest is not None:
         path = Path(dest) / ".mcp.json"
     elif project:
         path = Path.cwd() / ".mcp.json"
     else:
         path = Path.home() / ".claude.json"
-    path, changed = install.merge_mcp_config(path, force=force)
+    path, changed = install.merge_mcp_config(path, force=force, use_uvx=not no_uvx)
     if changed:
         click.echo(f"wrote  {path} (mcpServers.{install.MCP_SERVER_NAME})")
     else:
@@ -207,6 +221,11 @@ def tracker_cmd(
     is_flag=True,
     help="With --dest, use the Claude <name>/SKILL.md skills layout.",
 )
+@click.option(
+    "--with-mcp",
+    is_flag=True,
+    help="Also register the MCP server (uvx launcher; see 'setup mcp').",
+)
 @click.pass_context
 def all_cmd(
     ctx: click.Context,
@@ -214,11 +233,20 @@ def all_cmd(
     force: bool,
     dest: str | None,
     claude_layout: bool,
+    with_mcp: bool,
 ) -> None:
-    """Install skills, agents, wire the MCP server, and write the env scaffold."""
+    """Install skills, agents, and the env scaffold; MCP only with --with-mcp.
+
+    MCP registration is opt-in: the skills already document running everything
+    through ``uvx``, so most setups need no server entry at all. Pass
+    ``--with-mcp`` (or run ``setup mcp``) to register the uvx-launched server.
+    """
     ctx.invoke(
         skills_cmd, project=project, force=force, dest=dest, claude_layout=claude_layout
     )
     ctx.invoke(agents_cmd, project=project, force=force, dest=dest)
-    ctx.invoke(mcp_cmd, project=project, force=force, dest=dest)
+    if with_mcp:
+        ctx.invoke(mcp_cmd, project=project, force=force, dest=dest, no_uvx=False)
+    else:
+        click.echo("skip   MCP server registration (opt in with --with-mcp)")
     ctx.invoke(env_cmd, project=project, force=force, dest=dest)

@@ -207,13 +207,31 @@ def install_tracker(
     return written, skipped
 
 
-def mcp_server_entry() -> dict[str, object]:
-    """Return the MCP ``mcpServers`` entry for the stdio server."""
+def mcp_server_entry(use_uvx: bool = True) -> dict[str, object]:
+    """Return the MCP ``mcpServers`` entry for the stdio server.
+
+    Args:
+        use_uvx: When ``True`` (default) the entry launches the server through
+            ``uvx --from "devops-utils[mcp]" devops-utils-mcp`` — zero-install,
+            nothing needs to be on ``PATH`` beyond ``uv``. When ``False`` the
+            entry is the bare ``devops-utils-mcp`` console script, for
+            environments where the package is installed (``pip install
+            "devops-utils[mcp]"``) and ``uv`` is not available.
+    """
+    if use_uvx:
+        return {
+            "command": "uvx",
+            "args": ["--from", "devops-utils[mcp]", MCP_COMMAND],
+            "env": {},
+        }
     return {"command": MCP_COMMAND, "args": [], "env": {}}
 
 
 def merge_mcp_config(
-    path: Path, name: str = MCP_SERVER_NAME, force: bool = False
+    path: Path,
+    name: str = MCP_SERVER_NAME,
+    force: bool = False,
+    use_uvx: bool = True,
 ) -> tuple[Path, bool]:
     """Register the MCP server in a JSON config, preserving other servers.
 
@@ -227,6 +245,9 @@ def merge_mcp_config(
         name: Server key to register under.
         force: Overwrite an existing entry for ``name``. When ``False`` and the
             entry already exists, the file is left unchanged.
+        use_uvx: Passed to :func:`mcp_server_entry` — ``True`` (default) writes
+            the zero-install ``uvx`` launcher, ``False`` the on-``PATH``
+            ``devops-utils-mcp`` console script.
 
     Returns:
         A ``(path, changed)`` tuple. ``changed`` is ``False`` when an entry for
@@ -244,7 +265,7 @@ def merge_mcp_config(
     if name in servers and not force:
         return path, False
 
-    servers[name] = mcp_server_entry()
+    servers[name] = mcp_server_entry(use_uvx=use_uvx)
     data["mcpServers"] = servers
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")

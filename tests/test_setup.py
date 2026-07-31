@@ -41,11 +41,24 @@ def test_setup_skills_claude_layout(tmp_path):
     assert "name: azure-devops-work-items" in skill.read_text(encoding="utf-8")
 
 
-def test_setup_mcp_registers_server(tmp_path):
+def test_setup_mcp_registers_uvx_server_by_default(tmp_path):
     result = CliRunner().invoke(cli, ["setup", "mcp", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
     data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
-    assert data["mcpServers"]["devops-utils"]["command"] == "devops-utils-mcp"
+    entry = data["mcpServers"]["devops-utils"]
+    assert entry["command"] == "uvx"
+    assert entry["args"] == ["--from", "devops-utils[mcp]", "devops-utils-mcp"]
+
+
+def test_setup_mcp_no_uvx_registers_console_script(tmp_path):
+    result = CliRunner().invoke(
+        cli, ["setup", "mcp", "--dest", str(tmp_path), "--no-uvx"]
+    )
+    assert result.exit_code == 0, result.output
+    data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    entry = data["mcpServers"]["devops-utils"]
+    assert entry["command"] == "devops-utils-mcp"
+    assert entry["args"] == []
 
 
 def test_setup_mcp_preserves_existing_servers(tmp_path):
@@ -57,7 +70,7 @@ def test_setup_mcp_preserves_existing_servers(tmp_path):
     install.merge_mcp_config(cfg)
     data = json.loads(cfg.read_text(encoding="utf-8"))
     assert data["mcpServers"]["other"]["command"] == "keep-me"
-    assert data["mcpServers"]["devops-utils"]["command"] == "devops-utils-mcp"
+    assert data["mcpServers"]["devops-utils"]["command"] == "uvx"
 
 
 def test_setup_mcp_skips_when_present_without_force(tmp_path):
@@ -185,11 +198,22 @@ def test_setup_tracker_cli(tmp_path):
     assert 'update <id> --state "Resolved"' in text
 
 
-def test_setup_all_writes_everything(tmp_path):
+def test_setup_all_skips_mcp_by_default(tmp_path):
     result = CliRunner().invoke(cli, ["setup", "all", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert (tmp_path / "azure-devops.md").exists()
     assert (tmp_path / "azure-devops-research.md").exists()
     assert (tmp_path / "agents" / "azdo-build-analyst.md").exists()
-    assert (tmp_path / ".mcp.json").exists()
     assert (tmp_path / ".env.devops-utils.example").exists()
+    # MCP registration is opt-in — nothing is written without --with-mcp.
+    assert not (tmp_path / ".mcp.json").exists()
+    assert "--with-mcp" in result.output
+
+
+def test_setup_all_with_mcp_registers_uvx_server(tmp_path):
+    result = CliRunner().invoke(
+        cli, ["setup", "all", "--dest", str(tmp_path), "--with-mcp"]
+    )
+    assert result.exit_code == 0, result.output
+    data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
+    assert data["mcpServers"]["devops-utils"]["command"] == "uvx"

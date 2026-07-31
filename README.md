@@ -138,16 +138,20 @@ agent callables in `devops_utils.agent.tools`, all reading the env vars above.
 Set up an agent
 ---------------
 
-`devops-utils setup` installs the bundled skills and Claude Code subagents,
-wires the `devops-utils-mcp` server into an agent's MCP config, and writes an
-Azure DevOps env scaffold. Defaults target Claude Code at user scope
-(`~/.claude`).
+`devops-utils setup` installs the bundled skills and Claude Code subagents and
+writes an Azure DevOps env scaffold. Defaults target Claude Code at user scope
+(`~/.claude`). Registering the MCP server is **opt-in** (`--with-mcp` /
+`setup mcp`) — the skills run every command through `uvx`, so most setups need
+no server entry at all.
 
 ```bash
-# Everything, for the current user (skills + agents + MCP server + env scaffold)
+# Skills + agents + env scaffold, for the current user
 devops-utils setup all
 # same thing without installing:
 uvx --from "devops-utils[all]" devops-utils setup all
+
+# ... also registering the MCP server
+devops-utils setup all --with-mcp
 
 # Scope to the current repo (./.claude, ./.mcp.json)
 devops-utils setup all --project
@@ -159,9 +163,8 @@ devops-utils setup mcp --dest .
 devops-utils setup env
 ```
 
-`setup mcp` registers the server as `"command": "devops-utils-mcp"`, which
-assumes it is on `PATH`. To keep the zero-install path instead, point the entry
-at `uvx`:
+`setup mcp` registers the zero-install `uvx` launcher by default — only `uv`
+needs to be present:
 
 ```json
 {
@@ -174,6 +177,9 @@ at `uvx`:
   }
 }
 ```
+
+Pass `--no-uvx` to register the bare `devops-utils-mcp` console script instead
+(requires `pip install "devops-utils[mcp]"` so it is on `PATH`).
 
 `setup agents` installs three **read-only** Azure DevOps research subagents
 for Claude Code — `azdo-workitem-analyst` (pending items, assigned-to-me via
@@ -204,11 +210,11 @@ marketplace:
 (`carneirofc/devops-utils` is GitHub shorthand; a local checkout path works too:
 `/plugin marketplace add /path/to/devops-utils`.)
 
-The plugin ships only the skills and agents. Their Azure DevOps **MCP tools**
-(`mcp__devops-utils__azdo_*`) still come from the `devops-utils-mcp` server, so a
-working setup also needs that server registered — either
-`pip install "devops-utils[mcp]"` plus `devops-utils setup mcp`, or the `uvx`
-entry shown under *Set up an agent*. MCP is intentionally not bundled in the plugin: a
+The plugin ships only the skills and agents. The bundled **subagents** call the
+Azure DevOps MCP tools (`mcp__devops-utils__azdo_*`), so using them needs the
+server registered — `devops-utils setup mcp` writes the `uvx`-launched entry
+shown under *Set up an agent*. The skills themselves work without it (they
+drive the `devops-utils azdo` CLI via `uvx`). MCP is intentionally not bundled in the plugin: a
 plugin-scoped server would rename those tools and break the agents that call
 them.
 
