@@ -46,7 +46,8 @@ def _echo_ids(store, start=100):
 
 
 def _patch_ops(request: httpx.Request) -> list[dict]:
-    return json.loads(request.content.decode())
+    ops: list[dict] = json.loads(request.content.decode())
+    return ops
 
 
 # --------------------------------------------------------------------------- #
