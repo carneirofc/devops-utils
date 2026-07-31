@@ -20,6 +20,7 @@ from devops_utils.core.sanitizer import sanitize as _sanitize
 # All write tools gated behind a human confirmation (elicitation) prompt. Kept
 # as an explicit, auditable set separate from the read tools.
 WRITE_TOOLS = (
+    agent_tools.azdo_apply_plan,
     agent_tools.azdo_create_work_item,
     agent_tools.azdo_comment_work_item,
     agent_tools.azdo_set_work_item_tags,

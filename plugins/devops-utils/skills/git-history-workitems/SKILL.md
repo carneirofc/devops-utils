@@ -177,19 +177,46 @@ Summarise per year: features found, stories, how many implemented vs
 in-progress, and any commits that resisted classification (say where you put
 them). Stop here — pushing to Azure DevOps is the user's call.
 
+## Custom fields and user extensions
+
+The format above is the baseline, not a cage. If the user wants extra data on
+the work items — priorities, story points, custom process fields — add a
+`fields:` map (frontmatter for the Feature, a `- fields:` entry per story)
+keyed by **field reference name**; every key passes through to Azure DevOps
+untouched:
+
+```yaml
+fields:
+  Microsoft.VSTS.Common.Priority: 2
+  Custom.LegacyImport: "true"
+```
+
+Honour any other structural adjustments the user asks for (different output
+root, extra frontmatter keys, per-story authors detail) — only keep the core
+guarantees intact: Feature parents its stories, commit lists stay exhaustive,
+`azure_devops_id` slots exist.
+
 ## Follow-up: pushing to Azure DevOps
 
-When the user asks to create/update the work items, use the
-`azure-devops-work-items` skill with these files as the source of truth:
+When the user asks to create/update the work items, **generate a bulk plan**
+from these files and apply it with `devops-utils azdo apply` (see *Bulk
+operations* in the `azure-devops-work-items` skill) — one reviewable batch
+with a single confirmation, instead of dozens of individually prompted
+commands:
 
-- Create each Feature first (`--type Feature`), then each story with
-  `--parent <feature-id>` — **Feature is always the parent of its User
-  Stories**. Ask the user which Epic (if any) the Features hang under.
-- Map fields 1:1: `title`, description body, `tags`, `assigned_to`;
-  `status: implemented` → the project's done state (`Closed`/`Done` —
-  template-specific), `in-progress` → `Active`.
-- Link the code: run `azdo link <id> --kind commit --value <sha>` (needs
-  `--project`/`--repo`) for **every hash in the story's `commits` list** — the
-  list is exhaustive precisely so each commit ends up linked on the work item.
-- Write every created id back into the file's `azure_devops_id` field, so the
-  next run updates (`azdo update`) instead of re-creating.
+- One plan item per Feature (`ref:` = the file's `slug`) and per story, in
+  order, with each story's `parent: ref:<feature-slug>` — **Feature is always
+  the parent of its User Stories**. Ask the user which Epic (if any) the
+  Features hang under.
+- Map fields 1:1: `title`, description body, `tags`, `assigned_to`, and any
+  `fields:` map verbatim; `status: implemented` → the project's done state
+  (`Closed`/`Done` — template-specific), `in-progress` → `Active`.
+- Link the code: a `links:` entry `{kind: commit, value: <sha>, repo: <repo>}`
+  for **every hash in the story's `commits` list** — the list is exhaustive
+  precisely so each commit ends up linked on the work item. All of an item's
+  links go out in one request.
+- Items that already carry an `azure_devops_id` become `id:` **update** items
+  instead of creates — never duplicate.
+- Review with `--dry-run` first if the user wants a look before the prompt;
+  then apply and read the per-item results (`--out results.json`), and write
+  every created id back into the matching file's `azure_devops_id` field.

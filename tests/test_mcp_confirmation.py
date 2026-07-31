@@ -151,6 +151,7 @@ def test_skip_confirmation_unset_is_false(monkeypatch):
 # --------------------------------------------------------------------------- #
 def test_gated_set_is_exactly_all_writers():
     assert set(server.WRITE_TOOLS) == {
+        agent_tools.azdo_apply_plan,
         agent_tools.azdo_create_work_item,
         agent_tools.azdo_comment_work_item,
         agent_tools.azdo_set_work_item_tags,

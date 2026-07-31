@@ -21,6 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Bulk work-item operations: `azdo apply` / `azdo_apply_plan`.** A
+  declarative YAML/JSON *plan* — plan-level `project`, a `defaults` block, and
+  an ordered `items` list — applies a whole batch of creates, updates, links,
+  and comments in one go. Items without `id` are created (a requested `state`
+  lands via a follow-up patch, so historical items can arrive `Closed`),
+  items with `id` are updated, and `parent`/work-item link values accept
+  `ref:<name>` pointing at an item created earlier in the same run, so a full
+  Feature → User Story tree fits in one plan. The schema is deliberately
+  loose: the free-form per-item `fields` map passes any field reference name
+  through (`Custom.*` included) and unknown keys warn instead of fail. Clear
+  human-in-the-loop window: the CLI prints every warning plus the full
+  expanded operation list, then asks a single confirmation for the batch
+  (`--dry-run` reviews only, `--yes`/`DEVOPS_UTILS_SKIP_CONFIRMATION` skip);
+  on MCP the new `azdo_apply_plan` write tool is elicitation-gated like the
+  rest. All of an item's links go out in a single JSON-patch request.
+  Per-item results (`created`/`updated`/`failed`+error/`skipped`) stream to
+  stdout (`--out` saves them); failures don't stop the batch unless
+  `--stop-on-error`, dependents of a failed `ref` fail cleanly, and the exit
+  code is non-zero if anything failed. Core in
+  `core/azure_devops/bulk.py`; the `azure-devops-work-items` and
+  `git-history-workitems` skills now document the plan flow.
 - **New bundled skill: `git-history-workitems`.** Mines the repository's git
   history — commit messages, diffs, authors, tags — into per-year markdown
   Feature / User Story files under `docs/workitems/history/<year>/`. Commits

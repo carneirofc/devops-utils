@@ -708,3 +708,73 @@ def attach(
     ):
         return
     _echo(tools.azdo_add_work_item_attachment(work_item_id, file_path, comment=comment))
+
+
+@azdo.command("apply")
+@click.argument("plan_file", type=click.File("r", encoding="utf-8"))
+@click.option(
+    "--out",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Also write the per-item results JSON to this file.",
+)
+@click.option(
+    "--stop-on-error",
+    is_flag=True,
+    help="Stop at the first failed item (remaining items report as skipped).",
+)
+@_YES_OPTION
+@_DRY_RUN_OPTION
+def apply(
+    plan_file: Any, out: str | None, stop_on_error: bool, yes: bool, dry_run: bool
+) -> None:
+    """Apply a bulk work-item plan (YAML/JSON) — creates, updates, links, comments.
+
+    The plan carries an 'items' list plus optional plan-level 'project' and
+    'defaults'; items without 'id' are created, items with 'id' updated, and
+    'ref:<name>' values parent an item to one created earlier in the same run.
+    Any work-item field — custom fields included — passes through each item's
+    free-form 'fields' map, so the plan is not limited to the named keys.
+
+    The full expanded plan (with defaults merged and validation warnings) is
+    printed for review before a single confirmation covers the whole batch;
+    use --dry-run to only review. Results go to stdout as JSON; the exit code
+    is non-zero if any item failed. Use '-' to read the plan from stdin.
+    """
+    from devops_utils.core.azure_devops import (
+        PlanError,
+        load_plan,
+        plan_preview,
+        validate_plan,
+    )
+
+    try:
+        plan = load_plan(plan_file.read())
+        items, warnings = validate_plan(plan)
+    except PlanError as exc:
+        raise click.ClickException(f"invalid plan:\n{exc}") from exc
+
+    # Review window: everything on stderr so stdout stays pure JSON results.
+    for warning in warnings:
+        click.echo(f"warning: {warning}", err=True)
+    click.echo(f"About to apply {len(items)} operation(s):", err=True)
+    for pos, entry in enumerate(plan_preview(items), start=1):
+        click.echo(f"  {pos}. {json.dumps(entry, ensure_ascii=False)}", err=True)
+    if dry_run:
+        click.echo("(dry run — not applied)", err=True)
+        return
+    if not (yes or skip_confirmation()) and not click.confirm(
+        f"Apply all {len(items)} operation(s)?", default=False, err=True
+    ):
+        return
+
+    results = tools.azdo_apply_plan(plan, stop_on_error=stop_on_error)
+    payload = json.dumps(results, indent=2, ensure_ascii=False)
+    if out:
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(payload + "\n")
+    click.echo(payload)
+    failed = [r for r in results if r.get("status") == "failed"]
+    if failed:
+        click.echo(f"{len(failed)} item(s) failed", err=True)
+        raise SystemExit(1)

@@ -18,10 +18,11 @@ Windows credential store). Everything comes from environment variables:
 
 ## Human-in-the-loop (MCP writes)
 
-On the **MCP server**, all nine write tools (`azdo_create_work_item`,
+On the **MCP server**, all ten write tools (`azdo_create_work_item`,
 `azdo_comment_work_item`, `azdo_set_work_item_tags`, `azdo_update_work_item`,
 `azdo_add_work_item_link`, `azdo_remove_work_item_link`,
-`azdo_add_work_item_attachment`, `azdo_tag_build`, `azdo_comment_pull_request`)
+`azdo_add_work_item_attachment`, `azdo_tag_build`, `azdo_comment_pull_request`,
+`azdo_apply_plan`)
 require human approval via MCP **elicitation** before mutating Azure DevOps —
 the tool describes the pending change and applies it only on `accept`;
 `decline`/`cancel` returns a `cancelled` status and writes nothing. When the
@@ -33,8 +34,10 @@ unattended automation. Read tools are not gated. Implemented in
 ## Human-in-the-loop (CLI writes)
 
 The **CLI**'s write commands (`create`, `comment`, `tag`, `update`, `link`,
-`unlink`, `build-tag`, `pr-comment`, `attach`) print a preview of the pending
-change and prompt `Apply this change? [y/N]` before calling Azure DevOps.
+`unlink`, `build-tag`, `pr-comment`, `attach`, `apply`) print a preview of the
+pending change and prompt before calling Azure DevOps — `apply` (bulk plan)
+previews every operation in the batch and asks a single
+`Apply all N operation(s)?` confirmation.
 Pass `--yes`/`-y` to skip the prompt, or `--dry-run` to print the preview and
 exit without applying anything. `DEVOPS_UTILS_SKIP_CONFIRMATION` also skips
 the prompt, for scripted use. Implemented in
@@ -50,12 +53,12 @@ declined, stdout is empty and the exit code is 0.
 
 The same operations are exposed three ways, all reading the env vars above:
 
-- **CLI**: `devops-utils azdo {repos,files,code-search,list,search,get,create,update,comment,tag,link,unlink,attach,definitions,builds,build,timeline,logs,log,build-tag,pr-comment}`
+- **CLI**: `devops-utils azdo {repos,files,code-search,list,search,get,create,update,comment,tag,link,unlink,attach,apply,definitions,builds,build,timeline,logs,log,build-tag,pr-comment}`
 - **MCP tools**: `azdo_*` (run `devops-utils-mcp`)
 - **Agent callables**: `devops_utils.agent.tools.azdo_*`
 
 Core logic lives in `src/devops_utils/core/azure_devops/` (`client.py`,
-`workitems.py`, `repos.py`, `builds.py`, `pullrequests.py`) and is
+`workitems.py`, `repos.py`, `builds.py`, `pullrequests.py`, `bulk.py`) and is
 surface-agnostic.
 
 Nothing has to be installed to use the CLI or the MCP server — with `uv`

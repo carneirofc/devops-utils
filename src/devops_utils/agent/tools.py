@@ -627,3 +627,33 @@ def azdo_add_work_item_attachment(
     from devops_utils.core.azure_devops import add_attachment
 
     return add_attachment(_azdo_client(), work_item_id, file_path, comment=comment)
+
+
+def azdo_apply_plan(
+    plan: dict[str, Any] | str, stop_on_error: bool = False
+) -> list[dict[str, Any]]:
+    """Apply a bulk work-item plan (creates, updates, links, comments).
+
+    A plan is a mapping (or its YAML/JSON text) with an ``items`` list, an
+    optional plan-level ``project``, and an optional ``defaults`` block merged
+    into every item. Items without ``id`` are created (``type`` + ``title``
+    required), items with ``id`` are updated; ``parent`` and work-item link
+    values accept ``ref:<name>`` pointing at an earlier item's ``ref``. The
+    free-form per-item ``fields`` map passes **any** field reference name
+    through (``Custom.*`` included), so the plan is not limited to the named
+    keys. See :mod:`devops_utils.core.azure_devops.bulk` for the full shape.
+
+    Args:
+        plan: The plan mapping, or its YAML/JSON source text.
+        stop_on_error: Stop at the first failed item instead of continuing;
+            remaining items are reported as ``skipped``. Applied items are
+            never rolled back either way.
+
+    Returns:
+        Per-item results: ``{ref, action, id, url, status}`` with ``status``
+        one of ``created``/``updated``/``failed`` (+ ``error``)/``skipped``.
+    """
+    from devops_utils.core.azure_devops import apply_plan, load_plan
+
+    parsed = load_plan(plan) if isinstance(plan, str) else plan
+    return apply_plan(_azdo_client(), parsed, stop_on_error=stop_on_error)

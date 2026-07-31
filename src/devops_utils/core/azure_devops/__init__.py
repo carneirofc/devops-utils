@@ -8,6 +8,13 @@ from devops_utils.core.azure_devops.client import (
     AzureDevOpsClient,
     AzureDevOpsError,
 )
+from devops_utils.core.azure_devops.bulk import (
+    PlanError,
+    apply_plan,
+    load_plan,
+    plan_preview,
+    validate_plan,
+)
 from devops_utils.core.azure_devops.builds import (
     add_build_tags,
     get_build,
@@ -41,7 +48,12 @@ from devops_utils.core.azure_devops.workitems import (
 __all__ = [
     "AzureDevOpsClient",
     "AzureDevOpsError",
+    "PlanError",
     "add_attachment",
+    "apply_plan",
+    "load_plan",
+    "plan_preview",
+    "validate_plan",
     "add_build_tags",
     "add_comment",
     "add_link",

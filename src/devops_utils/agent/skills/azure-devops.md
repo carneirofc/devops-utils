@@ -30,11 +30,14 @@ secret never flows through tool arguments or logs (see
 
 ## Human-in-the-loop (writes)
 
-All **nine write tools** — `azdo_create_work_item`, `azdo_comment_work_item`,
+All **ten write tools** — `azdo_create_work_item`, `azdo_comment_work_item`,
 `azdo_set_work_item_tags`, `azdo_update_work_item`, `azdo_add_work_item_link`,
 `azdo_remove_work_item_link`, `azdo_add_work_item_attachment`,
-`azdo_tag_build`, `azdo_comment_pull_request` — preview the pending change and
-require confirmation before mutating Azure DevOps. Read tools are not gated.
+`azdo_tag_build`, `azdo_comment_pull_request`, `azdo_apply_plan` — preview the
+pending change and require confirmation before mutating Azure DevOps. Read
+tools are not gated. For batches, prefer `azdo_apply_plan` / `azdo apply` (see
+*Bulk operations*): one review window and one confirmation cover the whole
+batch instead of a prompt per item.
 
 - **MCP server:** approval via MCP **elicitation**. Declining returns a
   `cancelled` status and writes nothing. If the client can't prompt
@@ -51,7 +54,7 @@ require confirmation before mutating Azure DevOps. Read tools are not gated.
 
 The same operations are exposed three ways, all reading the env vars above:
 
-- **CLI:** `devops-utils azdo {repos,files,code-search,list,search,get,create,update,comment,tag,link,unlink,attach,definitions,builds,build,timeline,logs,log,build-tag,pr-comment}`
+- **CLI:** `devops-utils azdo {repos,files,code-search,list,search,get,create,update,comment,tag,link,unlink,attach,apply,definitions,builds,build,timeline,logs,log,build-tag,pr-comment}`
 - **MCP tools:** `azdo_*` — served by `devops-utils-mcp` (requires the `mcp` extra).
 - **Python / agent callables:** `from devops_utils.agent.tools import azdo_*`.
 
@@ -94,6 +97,7 @@ permanently.
 | `azdo_add_work_item_link` | `azdo link` | `work_item_id`, `kind`, `value`, `project`, `repo`, `comment` |
 | `azdo_remove_work_item_link` | `azdo unlink` | `work_item_id`, `kind`, `value`, `project`, `repo` |
 | `azdo_add_work_item_attachment` | `azdo attach` | `work_item_id`, `file_path`, `comment` |
+| `azdo_apply_plan` | `azdo apply` | `plan: dict \| str` (YAML/JSON), `stop_on_error: bool` |
 | `azdo_list_build_definitions` | `azdo definitions` | `project`, `name` (supports `*`), `top` |
 | `azdo_list_builds` | `azdo builds` | `project`, `definitions: list[int]`, `branch`, `statuses/results: list[str]`, `top` |
 | `azdo_get_build` | `azdo build` | `project: str`, `build_id: int` |
@@ -726,6 +730,74 @@ azdo_add_work_item_attachment(
 Two-step: uploads the file, then attaches it as an `AttachedFile` relation.
 
 CLI: `devops-utils azdo attach WORK_ITEM_ID FILE_PATH [--comment C]`
+
+## Bulk operations: apply a plan
+
+For anything beyond a couple of writes — importing a backlog, mass updates,
+wiring many links — build a **plan** (YAML or JSON) and apply it in one gated
+batch instead of issuing per-item commands:
+
+```yaml
+project: Contoso              # default project for every item
+defaults:                     # merged into every item; the item wins
+  type: User Story
+  area_path: Contoso\Payments
+  fields: {Custom.Source: git-history}
+items:
+  - ref: feat-checkout        # local handle later items can reference
+    type: Feature
+    title: Guest checkout
+    state: Closed             # applied via follow-up patch after create
+    assigned_to: dev@contoso.com
+    tags: [checkout]
+    fields:                   # ANY reference name passes through — custom too
+      Microsoft.VSTS.Scheduling.TargetDate: 2026-08-31
+      Custom.RiskLevel: High
+    links:
+      - {kind: commit, value: 3f2a91c, repo: web-app}
+      - {kind: hyperlink, value: "https://status.contoso.com/42"}
+    comments: [Imported from git history.]
+  - type: User Story
+    title: Pay without an account
+    parent: ref:feat-checkout # or a real work-item id
+  - id: 1421                  # has an id → update instead of create
+    state: Active
+    fields: {Custom.RiskLevel: Low}
+```
+
+Rules and behaviour:
+
+- Items apply **in order**. No `id` → create (`type` + `title` required);
+  `id` → update. `parent` and work-item link values take `ref:<name>`
+  pointing at an *earlier* item, so a whole Feature → Story tree lands in one
+  plan.
+- The schema is deliberately loose: named keys cover the common fields, and
+  the per-item `fields` map passes **any** field reference name through
+  (`Microsoft.VSTS.*`, `Custom.*`, …) — the user is never limited to the named
+  keys. Unknown item keys are *warnings* shown in the review, not errors.
+- All of an item's `links` are sent in a single patch request.
+- **Review window / HITL:** `azdo apply plan.yml` prints every warning and the
+  full expanded operation list to stderr, then asks **one** confirmation for
+  the whole batch. `--dry-run` stops after the review; `--yes` /
+  `DEVOPS_UTILS_SKIP_CONFIRMATION` skip the prompt. On MCP, `azdo_apply_plan`
+  is elicitation-gated like every write tool.
+- **Results:** per-item JSON on stdout (`--out results.json` to also save) —
+  `{ref, action, id, url, status}` with `status` of
+  `created`/`updated`/`failed` (+ `error`)/`skipped`. A failure doesn't stop
+  the batch unless `--stop-on-error`; items referencing a failed `ref` fail
+  with a clear message instead of mis-parenting. Nothing is rolled back —
+  re-run with the failed items only, or switch them to `id:` updates.
+- Exit code is non-zero if any item failed.
+
+```bash
+devops-utils azdo apply plan.yml --dry-run   # review only
+devops-utils azdo apply plan.yml --out results.json
+```
+
+```python
+from devops_utils.agent import tools
+results = tools.azdo_apply_plan(open("plan.yml", encoding="utf-8").read())
+```
 
 ## Return shape
 
