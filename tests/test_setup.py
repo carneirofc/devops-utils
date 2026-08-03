@@ -98,6 +98,140 @@ def test_setup_skips_existing_without_force(tmp_path):
     assert "skip" in result.output
 
 
+def test_setup_prompt_yes_overwrites(tmp_path):
+    target = tmp_path / "azure-devops.md"
+    target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(
+        cli, ["setup", "skills", "--dest", str(tmp_path)], input="y\n"
+    )
+    assert result.exit_code == 0, result.output
+    assert "SENTINEL" not in target.read_text(encoding="utf-8")
+    assert "overwrite" in result.stderr
+
+
+def test_setup_prompt_no_keeps_existing(tmp_path):
+    target = tmp_path / "azure-devops.md"
+    target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(
+        cli, ["setup", "skills", "--dest", str(tmp_path)], input="n\n"
+    )
+    assert result.exit_code == 0, result.output
+    assert target.read_text(encoding="utf-8") == "SENTINEL"
+    assert "skip" in result.output
+
+
+def test_setup_prompt_diff_then_overwrite(tmp_path):
+    target = tmp_path / "azure-devops.md"
+    target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(
+        cli, ["setup", "skills", "--dest", str(tmp_path)], input="d\ny\n"
+    )
+    assert result.exit_code == 0, result.output
+    assert "--- " in result.stderr and "+++ " in result.stderr
+    assert "-SENTINEL" in result.stderr
+    assert "SENTINEL" not in target.read_text(encoding="utf-8")
+
+
+def _seed_two_skills(tmp_path):
+    targets = [tmp_path / "azure-devops.md", tmp_path / "sanitize.md"]
+    for target in targets:
+        target.write_text("SENTINEL", encoding="utf-8")
+    return targets
+
+
+def test_setup_prompt_all_answers_remaining_files(tmp_path):
+    targets = _seed_two_skills(tmp_path)
+    # A single "a" covers both files: a second prompt would hit EOF and skip.
+    result = CliRunner().invoke(
+        cli, ["setup", "skills", "--dest", str(tmp_path)], input="a\n"
+    )
+    assert result.exit_code == 0, result.output
+    for target in targets:
+        assert "SENTINEL" not in target.read_text(encoding="utf-8")
+
+
+def test_setup_prompt_quit_keeps_remaining_files(tmp_path):
+    targets = _seed_two_skills(tmp_path)
+    result = CliRunner().invoke(
+        cli, ["setup", "skills", "--dest", str(tmp_path)], input="q\n"
+    )
+    assert result.exit_code == 0, result.output
+    for target in targets:
+        assert target.read_text(encoding="utf-8") == "SENTINEL"
+
+
+def test_setup_identical_content_is_not_prompted(tmp_path):
+    CliRunner().invoke(cli, ["setup", "skills", "--dest", str(tmp_path)])
+    # Nothing changed on disk, so the rerun has nothing to ask about.
+    result = CliRunner().invoke(cli, ["setup", "skills", "--dest", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "same" in result.stderr
+    assert "overwrite" not in result.stderr
+
+
+def test_setup_yes_flag_overwrites_without_prompting(tmp_path):
+    target = tmp_path / "azure-devops.md"
+    target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(cli, ["setup", "skills", "--dest", str(tmp_path), "-y"])
+    assert result.exit_code == 0, result.output
+    assert "SENTINEL" not in target.read_text(encoding="utf-8")
+    assert "overwrite" not in result.stderr
+
+
+def test_setup_skip_confirmation_env_keeps_existing(tmp_path, monkeypatch):
+    """Unattended runs must keep files, not clobber them."""
+    monkeypatch.setenv("DEVOPS_UTILS_SKIP_CONFIRMATION", "1")
+    target = tmp_path / "azure-devops.md"
+    target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(
+        cli, ["setup", "skills", "--dest", str(tmp_path)], input="y\n"
+    )
+    assert result.exit_code == 0, result.output
+    assert target.read_text(encoding="utf-8") == "SENTINEL"
+
+
+def test_setup_all_shares_one_answer_across_steps(tmp_path):
+    CliRunner().invoke(cli, ["setup", "all", "--dest", str(tmp_path), "--force"])
+    skill = tmp_path / "azure-devops.md"
+    agent = tmp_path / "agents" / "azdo-build-analyst.md"
+    env = tmp_path / ".env.devops-utils.example"
+    for target in (skill, agent, env):
+        target.write_text("SENTINEL", encoding="utf-8")
+    result = CliRunner().invoke(
+        cli, ["setup", "all", "--dest", str(tmp_path)], input="a\n"
+    )
+    assert result.exit_code == 0, result.output
+    for target in (skill, agent, env):
+        assert "SENTINEL" not in target.read_text(encoding="utf-8")
+
+
+def test_setup_mcp_prompt_declined_keeps_entry(tmp_path):
+    cfg = tmp_path / ".mcp.json"
+    CliRunner().invoke(cli, ["setup", "mcp", "--dest", str(tmp_path), "--no-uvx"])
+    result = CliRunner().invoke(
+        cli, ["setup", "mcp", "--dest", str(tmp_path)], input="n\n"
+    )
+    assert result.exit_code == 0, result.output
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["mcpServers"]["devops-utils"]["command"] == "devops-utils-mcp"
+
+
+def test_setup_mcp_prompt_accepted_replaces_entry_and_keeps_siblings(tmp_path):
+    cfg = tmp_path / ".mcp.json"
+    cfg.write_text(
+        json.dumps({"mcpServers": {"other": {"command": "keep-me"}}}),
+        encoding="utf-8",
+    )
+    CliRunner().invoke(cli, ["setup", "mcp", "--dest", str(tmp_path), "--no-uvx"])
+    result = CliRunner().invoke(
+        cli, ["setup", "mcp", "--dest", str(tmp_path)], input="y\n"
+    )
+    assert result.exit_code == 0, result.output
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data["mcpServers"]["devops-utils"]["command"] == "uvx"
+    assert data["mcpServers"]["other"]["command"] == "keep-me"
+
+
 def test_setup_force_overwrites(tmp_path):
     target = tmp_path / "azure-devops.md"
     target.write_text("SENTINEL", encoding="utf-8")

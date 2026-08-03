@@ -12,6 +12,8 @@ source checkout and from an installed wheel.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 
@@ -30,6 +32,30 @@ PLUGIN_NAME = "devops-utils"
 #: Marketplace name users add before installing the plugin
 #: (``/plugin install devops-utils@<MARKETPLACE_NAME>``).
 MARKETPLACE_NAME = "carneirofc"
+
+
+@dataclass(frozen=True)
+class OverwriteRequest:
+    """One pending overwrite, handed to a :data:`ConfirmOverwrite` callback.
+
+    Attributes:
+        path: File that would be written.
+        new_text: Content that would replace what is on disk.
+        existing_text: Content currently on disk.
+        label: Human-facing name for the item (usually ``str(path)``, but for a
+            merged JSON config it names the *entry*, not just the file).
+    """
+
+    path: Path
+    new_text: str
+    existing_text: str
+    label: str
+
+
+#: Callback deciding whether an existing target may be overwritten. Returning
+#: ``True`` writes the new content; ``False`` leaves the file untouched. The
+#: install helpers stay UI-free — the Click layer supplies the prompt.
+ConfirmOverwrite = Callable[[OverwriteRequest], bool]
 
 
 def _skills_resource():
@@ -79,17 +105,34 @@ def iter_bundled_skills() -> list[tuple[str, str, str]]:
     return sorted(skills, key=lambda s: s[1])
 
 
-def _write(path: Path, text: str, force: bool) -> Path | None:
-    """Write ``text`` to ``path``, returning the path or ``None`` if skipped."""
+def _write(
+    path: Path,
+    text: str,
+    force: bool,
+    confirm: ConfirmOverwrite | None = None,
+) -> Path | None:
+    """Write ``text`` to ``path``, returning the path or ``None`` if skipped.
+
+    An existing target is skipped unless ``force`` is set or ``confirm`` says
+    otherwise. ``errors="replace"`` on the read keeps an odd-encoding file from
+    crashing the callback before the user can decide what to do with it.
+    """
     if path.exists() and not force:
-        return None
+        if confirm is None:
+            return None
+        existing = path.read_text(encoding="utf-8", errors="replace")
+        if not confirm(OverwriteRequest(path, text, existing, str(path))):
+            return None
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return path
 
 
 def install_skills(
-    dest: Path, layout: str = "claude", force: bool = False
+    dest: Path,
+    layout: str = "claude",
+    force: bool = False,
+    confirm: ConfirmOverwrite | None = None,
 ) -> tuple[list[Path], list[Path]]:
     """Copy the bundled skills into ``dest``.
 
@@ -98,6 +141,8 @@ def install_skills(
         layout: ``"claude"`` writes ``dest/skills/<name>/SKILL.md`` (Claude Code
             discovery layout); ``"flat"`` writes ``dest/<filename>``.
         force: Overwrite existing files instead of skipping them.
+        confirm: Asked per existing file when ``force`` is not set; ``None``
+            skips existing files outright.
 
     Returns:
         A ``(written, skipped)`` tuple of destination paths.
@@ -112,7 +157,7 @@ def install_skills(
             target = dest / "skills" / name / "SKILL.md"
         else:
             target = dest / filename
-        result = _write(target, text, force)
+        result = _write(target, text, force, confirm)
         (written if result is not None else skipped).append(target)
     return written, skipped
 
@@ -140,7 +185,11 @@ def iter_bundled_agents() -> list[tuple[str, str, str]]:
     return sorted(agents, key=lambda a: a[1])
 
 
-def install_agents(dest: Path, force: bool = False) -> tuple[list[Path], list[Path]]:
+def install_agents(
+    dest: Path,
+    force: bool = False,
+    confirm: ConfirmOverwrite | None = None,
+) -> tuple[list[Path], list[Path]]:
     """Copy the bundled Claude Code agents into ``dest/agents/<name>.md``.
 
     Claude Code discovers subagents as single ``.md`` files in an ``agents/``
@@ -149,6 +198,8 @@ def install_agents(dest: Path, force: bool = False) -> tuple[list[Path], list[Pa
     Args:
         dest: Base directory to install into (e.g. ``~/.claude``).
         force: Overwrite existing files instead of skipping them.
+        confirm: Asked per existing file when ``force`` is not set; ``None``
+            skips existing files outright.
 
     Returns:
         A ``(written, skipped)`` tuple of destination paths.
@@ -157,7 +208,7 @@ def install_agents(dest: Path, force: bool = False) -> tuple[list[Path], list[Pa
     skipped: list[Path] = []
     for name, _filename, text in iter_bundled_agents():
         target = dest / "agents" / f"{name}.md"
-        result = _write(target, text, force)
+        result = _write(target, text, force, confirm)
         (written if result is not None else skipped).append(target)
     return written, skipped
 
@@ -172,6 +223,7 @@ def install_tracker(
     project_name: str,
     done_state: str = "Closed",
     force: bool = False,
+    confirm: ConfirmOverwrite | None = None,
 ) -> tuple[list[Path], list[Path]]:
     """Write the Azure DevOps tracker config for mattpocock-style skills.
 
@@ -187,6 +239,8 @@ def install_tracker(
         done_state: ``System.State`` value that means "closed" in the project's
             process template (e.g. ``Closed``, ``Done``, ``Resolved``).
         force: Overwrite existing files instead of skipping them.
+        confirm: Asked per existing file when ``force`` is not set; ``None``
+            skips existing files outright.
 
     Returns:
         A ``(written, skipped)`` tuple of destination paths.
@@ -202,7 +256,7 @@ def install_tracker(
             .replace("{done_state}", done_state)
         )
         target = dest / "docs" / "agents" / entry.name
-        result = _write(target, text, force)
+        result = _write(target, text, force, confirm)
         (written if result is not None else skipped).append(target)
     return written, skipped
 
@@ -232,6 +286,7 @@ def merge_mcp_config(
     name: str = MCP_SERVER_NAME,
     force: bool = False,
     use_uvx: bool = True,
+    confirm: ConfirmOverwrite | None = None,
 ) -> tuple[Path, bool]:
     """Register the MCP server in a JSON config, preserving other servers.
 
@@ -248,10 +303,15 @@ def merge_mcp_config(
         use_uvx: Passed to :func:`mcp_server_entry` — ``True`` (default) writes
             the zero-install ``uvx`` launcher, ``False`` the on-``PATH``
             ``devops-utils-mcp`` console script.
+        confirm: Asked before replacing an existing entry when ``force`` is not
+            set; ``None`` leaves the entry alone. The request compares the
+            *entry* JSON, not the whole file — sibling servers are never at
+            stake.
 
     Returns:
         A ``(path, changed)`` tuple. ``changed`` is ``False`` when an entry for
-        ``name`` already existed and ``force`` was not set.
+        ``name`` already existed and neither ``force`` nor ``confirm`` allowed
+        replacing it.
     """
     data: dict[str, object] = {}
     if path.exists():
@@ -262,10 +322,21 @@ def merge_mcp_config(
     servers = data.get("mcpServers")
     if not isinstance(servers, dict):
         servers = {}
+    entry = mcp_server_entry(use_uvx=use_uvx)
     if name in servers and not force:
-        return path, False
+        if confirm is None:
+            return path, False
+        request = OverwriteRequest(
+            path=path,
+            new_text=json.dumps(entry, indent=2, ensure_ascii=False) + "\n",
+            existing_text=json.dumps(servers[name], indent=2, ensure_ascii=False)
+            + "\n",
+            label=f"{path} (mcpServers.{name})",
+        )
+        if not confirm(request):
+            return path, False
 
-    servers[name] = mcp_server_entry(use_uvx=use_uvx)
+    servers[name] = entry
     data["mcpServers"] = servers
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -289,9 +360,13 @@ def env_template() -> str:
     )
 
 
-def write_env_scaffold(path: Path, force: bool = False) -> Path | None:
+def write_env_scaffold(
+    path: Path,
+    force: bool = False,
+    confirm: ConfirmOverwrite | None = None,
+) -> Path | None:
     """Write the env scaffold to ``path`` (skipped if it exists and not ``force``)."""
-    return _write(path, env_template(), force)
+    return _write(path, env_template(), force, confirm)
 
 
 def plugin_manifest() -> dict[str, object]:
@@ -354,13 +429,21 @@ def marketplace_manifest() -> dict[str, object]:
     }
 
 
-def _write_json(path: Path, data: dict[str, object], force: bool) -> Path | None:
+def _write_json(
+    path: Path,
+    data: dict[str, object],
+    force: bool,
+    confirm: ConfirmOverwrite | None = None,
+) -> Path | None:
     """Write ``data`` as pretty UTF-8 JSON (skipped if it exists sans ``force``)."""
-    return _write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n", force)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    return _write(path, text, force, confirm)
 
 
 def install_plugin(
-    repo_root: Path, force: bool = False
+    repo_root: Path,
+    force: bool = False,
+    confirm: ConfirmOverwrite | None = None,
 ) -> tuple[list[Path], list[Path]]:
     """Generate the Claude Code plugin + marketplace tree under ``repo_root``.
 
@@ -381,6 +464,8 @@ def install_plugin(
     Args:
         repo_root: Repository root to generate the plugin tree into.
         force: Overwrite existing files instead of skipping them.
+        confirm: Asked per existing file when ``force`` is not set; ``None``
+            skips existing files outright.
 
     Returns:
         A ``(written, skipped)`` tuple of destination paths.
@@ -390,7 +475,7 @@ def install_plugin(
     written: list[Path] = []
     skipped: list[Path] = []
     for install in (install_skills, install_agents):
-        w, s = install(plugin_root, force=force)
+        w, s = install(plugin_root, force=force, confirm=confirm)
         written.extend(w)
         skipped.extend(s)
 
@@ -398,7 +483,7 @@ def install_plugin(
         (plugin_root / ".claude-plugin" / "plugin.json", plugin_manifest()),
         (repo_root / ".claude-plugin" / "marketplace.json", marketplace_manifest()),
     ):
-        result = _write_json(path, data, force)
+        result = _write_json(path, data, force, confirm)
         (written if result is not None else skipped).append(path)
 
     return written, skipped

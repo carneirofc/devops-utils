@@ -241,8 +241,27 @@ run status, failure diagnosis via timeline + log tailing), and
 `azdo-repo-analyst` (repo/file/code search). Writes stay with the main
 assistant, gated by the MCP server's human confirmation.
 
-Use `--force` to overwrite existing files; `setup mcp` merges into any existing
-config without clobbering other servers.
+Nothing is clobbered silently. When a target already exists, setup asks about it
+one item at a time — `y` (overwrite), `n` (keep), `a` (overwrite all remaining),
+`q` (stop asking and keep the rest), or `d` to see a diff of the bundled version
+against yours first. Files identical to the bundled copy are reported as `same`
+and never prompt.
+
+```console
+$ devops-utils setup all
+wrote  ~/.claude/skills/azure-devops-research/SKILL.md
+overwrite ~/.claude/agents/azdo-build-analyst.md? [y]es / [n]o / [a]ll / [q]uit / [d]iff: n
+skip   ~/.claude/agents/azdo-build-analyst.md (kept existing)
+```
+
+`--force` (or `-y`/`--yes`) answers yes to everything and prompts for nothing.
+An answer of `a`/`q` during `setup all` carries across its remaining steps.
+Unattended runs — no terminal, or `DEVOPS_UTILS_SKIP_CONFIRMATION` set — keep
+every existing file and exit 0, so CI never blocks on a prompt or overwrites by
+surprise; pass `--force` there if you do want a refresh.
+
+`setup mcp` prompts before replacing an existing `mcpServers.devops-utils`
+entry and merges into any existing config without clobbering other servers.
 
 
 Use as a Claude Code plugin

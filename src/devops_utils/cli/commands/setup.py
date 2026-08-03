@@ -10,28 +10,142 @@ arbitrary directory.
 ``setup tracker`` is the per-repo companion: it writes an Azure DevOps
 ``docs/agents/issue-tracker.md`` + ``triage-labels.md`` so mattpocock-style
 skills drive work items through ``devops-utils azdo`` instead of ``gh``.
+
+Existing files are never clobbered silently: each one is offered for
+overwrite individually (``y``/``n``/``a``ll/``q``uit/``d``iff), unless
+``--force``/``--yes`` answers yes to everything or the run is unattended (no
+tty, or ``DEVOPS_UTILS_SKIP_CONFIRMATION``), in which case they are kept.
 """
 
+import difflib
 from pathlib import Path
 
 import click
 
 from devops_utils.agent import install
+from devops_utils.core.confirmation import skip_confirmation
+
+#: ``ctx.meta`` key holding the run's shared :class:`_Overwriter`. ``ctx.meta``
+#: spans the whole invocation, so an "all"/"quit" answer given during
+#: ``setup all`` still applies to the sub-commands it invokes afterwards.
+_OVERWRITER_KEY = "devops_utils.setup.overwriter"
+
+_PROMPT_CHOICES = ("y", "n", "a", "q", "d")
+
+
+class _Overwriter:
+    """Ask, once per existing target, whether it may be overwritten.
+
+    Implements :data:`install.ConfirmOverwrite`. All output goes to **stderr**
+    (like the ``azdo`` write gate) so stdout stays the machine-readable list of
+    what was written.
+
+    State is deliberately per-run, not per-file: ``a`` (all) and ``q`` (quit)
+    have to carry across the remaining files — and across the sub-commands
+    ``setup all`` chains together.
+    """
+
+    def __init__(self, assume_yes: bool = False) -> None:
+        self.assume_yes = assume_yes
+        self.quit = False
+        #: Set after the first EOF: an unattended run must not keep re-prompting
+        #: a stream that will never answer.
+        self.unattended = skip_confirmation()
+
+    def __call__(self, request: install.OverwriteRequest) -> bool:
+        if self.assume_yes:
+            return True
+        if self.quit:
+            return False
+        if request.new_text == request.existing_text:
+            click.echo(f"same   {request.label}", err=True)
+            return False
+        if self.unattended:
+            return False
+
+        while True:
+            answer: str
+            try:
+                answer = click.prompt(
+                    f"overwrite {request.label}? "
+                    "[y]es / [n]o / [a]ll / [q]uit / [d]iff",
+                    type=click.Choice(_PROMPT_CHOICES, case_sensitive=False),
+                    default="n",
+                    show_default=False,
+                    show_choices=False,
+                    err=True,
+                ).lower()
+            except (EOFError, click.Abort):
+                self.unattended = True
+                click.echo(
+                    "\n(not a terminal — keeping existing files; "
+                    "use --force to overwrite)",
+                    err=True,
+                )
+                return False
+            if answer == "d":
+                self._show_diff(request)
+                continue
+            if answer == "a":
+                self.assume_yes = True
+                return True
+            if answer == "q":
+                self.quit = True
+                return False
+            return answer == "y"
+
+    @staticmethod
+    def _show_diff(request: install.OverwriteRequest) -> None:
+        """Print a unified diff of what the overwrite would change."""
+        diff = difflib.unified_diff(
+            request.existing_text.splitlines(),
+            request.new_text.splitlines(),
+            fromfile=f"{request.label} (existing)",
+            tofile="bundled",
+            lineterm="",
+        )
+        for line in diff:
+            click.echo(line, err=True)
+
+
+def _overwriter(ctx: click.Context, assume_yes: bool) -> _Overwriter:
+    """Return the run's shared overwrite prompter, creating it on first use."""
+    existing = ctx.meta.get(_OVERWRITER_KEY)
+    if isinstance(existing, _Overwriter):
+        if assume_yes:
+            existing.assume_yes = True
+        return existing
+    created = _Overwriter(assume_yes=assume_yes)
+    ctx.meta[_OVERWRITER_KEY] = created
+    return created
+
+
+def _force_option(fn):
+    """Attach the shared ``--force``/``--yes`` overwrite options."""
+    fn = click.option(
+        "--yes",
+        "-y",
+        "yes",
+        is_flag=True,
+        help="Answer yes to every overwrite prompt (same as --force).",
+    )(fn)
+    fn = click.option(
+        "--force",
+        is_flag=True,
+        help="Overwrite existing files without prompting.",
+    )(fn)
+    return fn
 
 
 def _scope_options(fn):
-    """Attach the shared ``--user/--project`` and ``--force`` options."""
+    """Attach the shared ``--user/--project`` and overwrite options."""
     fn = click.option(
         "--project",
         "project",
         is_flag=True,
         help="Target the current repo instead of the user home config.",
     )(fn)
-    fn = click.option(
-        "--force",
-        is_flag=True,
-        help="Overwrite existing files instead of skipping them.",
-    )(fn)
+    fn = _force_option(fn)
     return fn
 
 
@@ -39,7 +153,7 @@ def _report(written: list[Path], skipped: list[Path]) -> None:
     for path in written:
         click.echo(f"wrote  {path}")
     for path in skipped:
-        click.echo(f"skip   {path} (exists; use --force)")
+        click.echo(f"skip   {path} (kept existing)")
 
 
 def _skills_target(
@@ -65,19 +179,30 @@ def setup() -> None:
     is_flag=True,
     help="With --dest, use the Claude <name>/SKILL.md layout instead of flat.",
 )
+@click.pass_context
 def skills_cmd(
-    project: bool, force: bool, dest: str | None, claude_layout: bool
+    ctx: click.Context,
+    project: bool,
+    force: bool,
+    yes: bool,
+    dest: str | None,
+    claude_layout: bool,
 ) -> None:
     """Copy the bundled agent skills into an agent's skills directory."""
     base, layout = _skills_target(project, dest, claude_layout)
-    written, skipped = install.install_skills(base, layout=layout, force=force)
+    written, skipped = install.install_skills(
+        base, layout=layout, force=force, confirm=_overwriter(ctx, force or yes)
+    )
     _report(written, skipped)
 
 
 @setup.command("agents")
 @_scope_options
 @click.option("--dest", default=None, help="Install into this directory's agents/.")
-def agents_cmd(project: bool, force: bool, dest: str | None) -> None:
+@click.pass_context
+def agents_cmd(
+    ctx: click.Context, project: bool, force: bool, yes: bool, dest: str | None
+) -> None:
     """Copy the bundled Claude Code subagents into an agents directory.
 
     Installs the read-only Azure DevOps analyst agents (work items, builds,
@@ -88,7 +213,9 @@ def agents_cmd(project: bool, force: bool, dest: str | None) -> None:
         base = Path(dest)
     else:
         base = Path.cwd() / ".claude" if project else Path.home() / ".claude"
-    written, skipped = install.install_agents(base, force=force)
+    written, skipped = install.install_agents(
+        base, force=force, confirm=_overwriter(ctx, force or yes)
+    )
     _report(written, skipped)
 
 
@@ -101,7 +228,15 @@ def agents_cmd(project: bool, force: bool, dest: str | None) -> None:
     help="Register the on-PATH devops-utils-mcp console script instead of the "
     "zero-install uvx launcher (requires pip install 'devops-utils[mcp]').",
 )
-def mcp_cmd(project: bool, force: bool, dest: str | None, no_uvx: bool) -> None:
+@click.pass_context
+def mcp_cmd(
+    ctx: click.Context,
+    project: bool,
+    force: bool,
+    yes: bool,
+    dest: str | None,
+    no_uvx: bool,
+) -> None:
     """Register the devops-utils MCP server in the agent's MCP config.
 
     By default the entry launches the server through
@@ -115,13 +250,16 @@ def mcp_cmd(project: bool, force: bool, dest: str | None, no_uvx: bool) -> None:
         path = Path.cwd() / ".mcp.json"
     else:
         path = Path.home() / ".claude.json"
-    path, changed = install.merge_mcp_config(path, force=force, use_uvx=not no_uvx)
+    path, changed = install.merge_mcp_config(
+        path,
+        force=force,
+        use_uvx=not no_uvx,
+        confirm=_overwriter(ctx, force or yes),
+    )
     if changed:
         click.echo(f"wrote  {path} (mcpServers.{install.MCP_SERVER_NAME})")
     else:
-        click.echo(
-            f"skip   {path} ({install.MCP_SERVER_NAME} already set; use --force)"
-        )
+        click.echo(f"skip   {path} ({install.MCP_SERVER_NAME} left as-is)")
 
 
 @setup.command("env")
@@ -129,7 +267,10 @@ def mcp_cmd(project: bool, force: bool, dest: str | None, no_uvx: bool) -> None:
 @click.option(
     "--dest", default=None, help="Write the env scaffold into this directory."
 )
-def env_cmd(project: bool, force: bool, dest: str | None) -> None:
+@click.pass_context
+def env_cmd(
+    ctx: click.Context, project: bool, force: bool, yes: bool, dest: str | None
+) -> None:
     """Write an Azure DevOps env-var scaffold."""
     if dest is not None:
         path = Path(dest) / ".env.devops-utils.example"
@@ -137,11 +278,13 @@ def env_cmd(project: bool, force: bool, dest: str | None) -> None:
         path = Path.cwd() / ".env.devops-utils.example"
     else:
         path = Path.home() / ".devops-utils.env.example"
-    result = install.write_env_scaffold(path, force=force)
+    result = install.write_env_scaffold(
+        path, force=force, confirm=_overwriter(ctx, force or yes)
+    )
     if result is not None:
         click.echo(f"wrote  {result}")
     else:
-        click.echo(f"skip   {path} (exists; use --force)")
+        click.echo(f"skip   {path} (kept existing)")
 
 
 @setup.command("plugin")
@@ -150,12 +293,9 @@ def env_cmd(project: bool, force: bool, dest: str | None) -> None:
     default=None,
     help="Repository root to generate the plugin tree into (defaults to cwd).",
 )
-@click.option(
-    "--force",
-    is_flag=True,
-    help="Overwrite existing files instead of skipping them.",
-)
-def plugin_cmd(dest: str | None, force: bool) -> None:
+@_force_option
+@click.pass_context
+def plugin_cmd(ctx: click.Context, dest: str | None, force: bool, yes: bool) -> None:
     """Generate the Claude Code plugin + marketplace tree for this repo.
 
     Lays the bundled skills/agents out as a plugin named ``devops-utils`` so
@@ -170,7 +310,9 @@ def plugin_cmd(dest: str | None, force: bool) -> None:
     server (``pip install "devops-utils[mcp]"``); MCP is not bundled in the plugin.
     """
     base = Path(dest) if dest is not None else Path.cwd()
-    written, skipped = install.install_plugin(base, force=force)
+    written, skipped = install.install_plugin(
+        base, force=force, confirm=_overwriter(ctx, force or yes)
+    )
     _report(written, skipped)
 
 
@@ -192,13 +334,15 @@ def plugin_cmd(dest: str | None, force: bool) -> None:
     default=None,
     help="Repository root to install into (defaults to the current directory).",
 )
-@click.option(
-    "--force",
-    is_flag=True,
-    help="Overwrite existing files instead of skipping them.",
-)
+@_force_option
+@click.pass_context
 def tracker_cmd(
-    project_name: str, done_state: str, dest: str | None, force: bool
+    ctx: click.Context,
+    project_name: str,
+    done_state: str,
+    dest: str | None,
+    force: bool,
+    yes: bool,
 ) -> None:
     """Point mattpocock-style skills at Azure DevOps for this repo.
 
@@ -208,7 +352,11 @@ def tracker_cmd(
     """
     base = Path(dest) if dest is not None else Path.cwd()
     written, skipped = install.install_tracker(
-        base, project_name, done_state=done_state, force=force
+        base,
+        project_name,
+        done_state=done_state,
+        force=force,
+        confirm=_overwriter(ctx, force or yes),
     )
     _report(written, skipped)
 
@@ -231,6 +379,7 @@ def all_cmd(
     ctx: click.Context,
     project: bool,
     force: bool,
+    yes: bool,
     dest: str | None,
     claude_layout: bool,
     with_mcp: bool,
@@ -240,13 +389,23 @@ def all_cmd(
     MCP registration is opt-in: the skills already document running everything
     through ``uvx``, so most setups need no server entry at all. Pass
     ``--with-mcp`` (or run ``setup mcp``) to register the uvx-launched server.
+
+    Overwrite answers are shared across the steps: one ``a``/``q`` covers the
+    skills, agents, MCP entry, and env scaffold that follow it.
     """
     ctx.invoke(
-        skills_cmd, project=project, force=force, dest=dest, claude_layout=claude_layout
+        skills_cmd,
+        project=project,
+        force=force,
+        yes=yes,
+        dest=dest,
+        claude_layout=claude_layout,
     )
-    ctx.invoke(agents_cmd, project=project, force=force, dest=dest)
+    ctx.invoke(agents_cmd, project=project, force=force, yes=yes, dest=dest)
     if with_mcp:
-        ctx.invoke(mcp_cmd, project=project, force=force, dest=dest, no_uvx=False)
+        ctx.invoke(
+            mcp_cmd, project=project, force=force, yes=yes, dest=dest, no_uvx=False
+        )
     else:
         click.echo("skip   MCP server registration (opt in with --with-mcp)")
-    ctx.invoke(env_cmd, project=project, force=force, dest=dest)
+    ctx.invoke(env_cmd, project=project, force=force, yes=yes, dest=dest)

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`setup` asks before overwriting, one item at a time.** Any target that
+  already exists — skill, subagent, env scaffold, tracker doc, plugin manifest,
+  or the `mcpServers.devops-utils` entry — now prompts on stderr with
+  `[y]es / [n]o / [a]ll / [q]uit / [d]iff`, where `d` prints a unified diff of
+  the bundled version against yours before you decide. A file identical to the
+  bundled copy is reported as `same` and never prompts. `a`/`q` carry across the
+  rest of the run, including the steps `setup all` chains together.
+- **`--yes`/`-y` on every `setup` sub-command**, an alias for `--force`: answer
+  yes to all overwrite prompts.
+
+### Changed
+
+- **Unattended `setup` runs keep existing files instead of erroring.** With no
+  terminal (CI, a pipe) or with `DEVOPS_UTILS_SKIP_CONFIRMATION` set, setup
+  reports why it stopped asking, keeps every existing file, and exits 0 — the
+  same outcome as before this release. Pass `--force`/`--yes` to refresh them.
+
 ## [0.9.0] - 2026-07-31
 
 ### Changed

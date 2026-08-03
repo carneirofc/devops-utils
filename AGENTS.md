@@ -11,6 +11,12 @@ zero-install `uvx --from "devops-utils[mcp]" devops-utils-mcp` launcher
 the current repo instead of `~/.claude`.
 See `src/devops_utils/cli/commands/setup.py`.
 
+Every existing target is offered for overwrite individually
+(`y`/`n`/`a`ll/`q`uit/`d`iff, prompt on stderr); `--force`/`--yes` answers yes to
+all, and unattended runs (no tty, or `DEVOPS_UTILS_SKIP_CONFIRMATION`) keep the
+existing files. The prompt lives in `setup.py`'s `_Overwriter`; `install.py`
+stays UI-free behind the `ConfirmOverwrite` callback.
+
 `devops-utils setup agents` installs three read-only Azure DevOps research
 subagents (`azdo-workitem-analyst`, `azdo-build-analyst`, `azdo-repo-analyst`)
 as `agents/<name>.md`. Sources: `src/devops_utils/agent/agents/`.
