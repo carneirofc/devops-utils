@@ -24,7 +24,11 @@ as `agents/<name>.md`. Sources: `src/devops_utils/agent/agents/`.
 `devops-utils setup tracker --project-name X` writes an Azure DevOps
 `docs/agents/issue-tracker.md` + `triage-labels.md` into a target repo so
 mattpocock-style skills drive Azure DevOps work items through `devops-utils azdo`
-instead of the default `gh` CLI. Templates: `src/devops_utils/agent/trackers/`.
+instead of the default `gh` CLI. Optional `--org-url`, `--parent-epic`,
+`--area-path`, and repeatable `--default-tag` render a "Defaults for this
+repo" table agents apply on every create/query. Templates:
+`src/devops_utils/agent/trackers/`. The `setup-issue-tracker` skill wraps this
+command in a prompt-based flow validated against the live organization.
 
 ## Agent skills
 
@@ -41,6 +45,20 @@ Read-only status research: pending / assigned-to-me (`@Me`) / type+tag work-item
 filters, build definitions and run status, failure diagnosis via timeline and
 log tailing, and repo/file/code search.
 Skill: `src/devops_utils/agent/skills/azure-devops-research.md`.
+
+### Find work items
+
+Query recipes for locating work items by type, tags, direct parent
+(`--parent`), and area path — pending-issue searches scoped by the repo's
+tracker defaults, Epic backlog walks, triage queues by tag.
+Skill: `src/devops_utils/agent/skills/find-workitems.md`.
+
+### Set up the issue tracker
+
+Prompt-based setup of a repo's tracker config: asks for org URL, project,
+parent Epic, Area Path, default tags, and done state — validating each against
+the live Azure DevOps organization — then runs `devops-utils setup tracker`.
+Skill: `src/devops_utils/agent/skills/setup-issue-tracker.md`.
 
 ### Git history → work items
 

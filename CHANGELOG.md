@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`parent` filter on work-item list/search.** `azdo list` / `azdo search`
+  (CLI `--parent ID`, tools/MCP `parent: int | None`) filter to the direct
+  children of a work item via WIQL `[System.Parent]` (Services / Server
+  2019.1+), so an Epic's or Feature's backlog is one query away.
+- **`setup tracker` records repo defaults.** New `--org-url`, `--parent-epic`,
+  `--area-path`, and repeatable `--default-tag` options render a
+  "Defaults for this repo" table into `docs/agents/issue-tracker.md`, plus
+  ready-to-paste create/query flag fragments, so agents create new items under
+  the right Epic/area with the default tags and scope their searches the same
+  way. Unset values render readable fallbacks.
+- **`setup-issue-tracker` skill.** A prompt-based, guided setup flow: asks the
+  user for org URL, project, parent Epic, Area Path, default tags, and done
+  state — validating each against the live Azure DevOps organization
+  (listing real Epics, area paths, and tags to choose from) — then writes the
+  tracker config via `devops-utils setup tracker` and verifies it with the
+  documented pending-issues query.
+- **`azure-devops-find-workitems` skill.** Query recipes for locating work
+  items by type, tags, parent, and area path — pending-issues queries scoped
+  by the repo's tracker defaults, Epic backlog walks via `--parent`, triage
+  queues by tag, and empty-result troubleshooting.
+
+### Changed
+
+- **`azure-devops-work-items` skill** documents the new `parent` filter on
+  list/search.
+
 ## [0.10.0] - 2026-08-03
 
 ### Added

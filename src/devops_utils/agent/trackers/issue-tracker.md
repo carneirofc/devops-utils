@@ -5,6 +5,28 @@ Issues and PRDs for this repo live as Azure DevOps work items in the
 same operations are exposed as `azdo_*` MCP tools by the `devops-utils-mcp`
 server — prefer those when available.
 
+## Defaults for this repo
+
+| Setting | Value |
+| --- | --- |
+| Organization URL | {org_url} |
+| Project | {project} |
+| Parent Epic | {parent_epic} |
+| Area Path | {area_path} |
+| Default tags | {default_tags} |
+| Done state | {done_state} |
+
+Apply these defaults on every operation unless the user overrides them:
+
+- **Creating**: parent new items under the parent Epic (or a Feature/Story
+  beneath it), set the area path, and apply every default tag —
+  `devops-utils azdo create --project {project} --type Task --title "..."{create_flags}`.
+- **Querying**: scope searches with the same area path and tags so this repo's
+  items surface first —
+  `devops-utils azdo list --project {project}{query_flags}`.
+  To walk the backlog under the parent Epic, filter by direct parent:
+  `devops-utils azdo list --project {project} --parent {parent_epic_id}`.
+
 If `devops-utils` is not on `PATH`, run it through `uvx` (assume `uv` is
 installed): `uvx --from "devops-utils[azure]" devops-utils azdo …`. The
 `[azure]` extra is required; every command below then works unchanged behind
@@ -40,9 +62,14 @@ Output is UTF-8 regardless of the calling shell's code page — no `chcp`,
   description, scheduling dates, and any `Custom.*` field — they come back as a
   `fields` map keyed by reference name, alongside `rev`. Add `--relations` for
   parent/child and PR/commit links; the two compose.
-- **List issues**: `devops-utils azdo list --project {project} [--state Active] [--type Bug] [--assigned-to WHO] [--top N]`
-  (`--state`/`--type` are repeatable).
-- **Search issues**: `devops-utils azdo search --project {project} "TEXT"`.
+- **List issues**: `devops-utils azdo list --project {project} [--state Active] [--type Bug] [--assigned-to WHO] [--tag X] [--parent ID] [--area-path P] [--top N]`
+  (`--state`/`--type`/`--tag` are repeatable; `--parent` matches direct
+  children of a work-item id).
+- **Find pending issues**: pending = the non-closed states, scoped by the
+  defaults above —
+  `devops-utils azdo list --project {project} --state New --state Active{query_flags}`.
+- **Search issues**: `devops-utils azdo search --project {project} "TEXT"`
+  (same filters as `list`, matched against title + description).
 - **Comment on an issue**: `devops-utils azdo comment <id> "..."`.
 - **Apply a label**: labels are work-item **tags** — `devops-utils azdo tag <id> <label> --mode add`.
 - **Remove a label**: tags have no atomic remove; read the current tags with

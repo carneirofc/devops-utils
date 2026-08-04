@@ -60,6 +60,7 @@ def azdo_list_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    parent: int | None = None,
     area_path: str | None = None,
     iteration_path: str | None = None,
     top: int = 50,
@@ -75,6 +76,8 @@ def azdo_list_work_items(
             to use the WIQL macro that resolves the authenticated identity —
             i.e. "assigned to me" without knowing the user's email.
         tags: Optional tags; each must be present (AND semantics).
+        parent: Optional parent work-item id; only direct children of that
+            item are returned (``[System.Parent]``, Services / Server 2019.1+).
         area_path: Optional Azure Boards area path (e.g. ``Project\\Team``);
             matches that node and everything under it.
         iteration_path: Optional Azure Boards iteration/sprint path (e.g.
@@ -93,6 +96,7 @@ def azdo_list_work_items(
         types=types,
         assigned_to=assigned_to,
         tags=tags,
+        parent=parent,
         area_path=area_path,
         iteration_path=iteration_path,
         top=top,
@@ -106,6 +110,7 @@ def azdo_search_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    parent: int | None = None,
     area_path: str | None = None,
     iteration_path: str | None = None,
     top: int = 50,
@@ -119,6 +124,8 @@ def azdo_search_work_items(
         types: Optional work-item types.
         assigned_to: Optional assignee; ``"@Me"`` means the authenticated user.
         tags: Optional tags; each must be present (AND semantics).
+        parent: Optional parent work-item id; only direct children of that
+            item are returned (``[System.Parent]``, Services / Server 2019.1+).
         area_path: Optional Azure Boards area path; matches that node and
             everything under it.
         iteration_path: Optional Azure Boards iteration/sprint path; matches
@@ -138,6 +145,7 @@ def azdo_search_work_items(
         types=types,
         assigned_to=assigned_to,
         tags=tags,
+        parent=parent,
         area_path=area_path,
         iteration_path=iteration_path,
         top=top,

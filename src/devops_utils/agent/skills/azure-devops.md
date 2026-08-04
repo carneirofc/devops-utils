@@ -87,8 +87,8 @@ permanently.
 | `azdo_list_repositories` | `azdo repos` | `project: str \| None`, `name_filter: str \| None` |
 | `azdo_find_repo_files` | `azdo files` | `project`, `repo`, `path_pattern: str`, `branch`, `top` |
 | `azdo_code_search` | `azdo code-search` | `project`, `text`, `repo`, `branch`, `top` |
-| `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `area_path`, `iteration_path`, `top: int` |
-| `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `area_path`, `iteration_path`, `top` |
+| `azdo_list_work_items` | `azdo list` | `project: str`, `states/types/tags: list[str] \| None`, `assigned_to` (`"@Me"` ok), `parent: int \| None`, `area_path`, `iteration_path`, `top: int` |
+| `azdo_search_work_items` | `azdo search` | `project`, `text`, `states/types/tags`, `assigned_to`, `parent`, `area_path`, `iteration_path`, `top` |
 | `azdo_get_work_item` | `azdo get` | `work_item_id: int`, `relations: bool`, `full: bool` |
 | `azdo_create_work_item` | `azdo create` | `project`, `work_item_type`, `title`, `description`, `tags`, `area_path`, `iteration_path`, `assigned_to`, `parent`, `fields: dict` (dates/effort/priority — see *Scheduling*) |
 | `azdo_update_work_item` | `azdo update` | `work_item_id`, `state`, `assigned_to`, `title`, `description`, `area_path`, `iteration_path`, `fields: dict` (dates/effort/priority — see *Scheduling*) |
@@ -170,6 +170,7 @@ azdo_list_work_items(
     types: list[str] | None = None,    # e.g. ["Bug", "Task"]
     assigned_to: str | None = None,    # email, display name, or "@Me"
     tags: list[str] | None = None,     # AND semantics: every tag must be present
+    parent: int | None = None,         # direct children of this work-item id
     area_path: str | None = None,      # matches this node AND everything under it
     iteration_path: str | None = None, # matches this node AND everything under it
     top: int = 50,
@@ -180,10 +181,12 @@ Backed by a WIQL query ordered by `System.ChangedDate DESC`.
 `assigned_to="@Me"` uses the WIQL macro that resolves the identity behind the
 token — "assigned to me" without knowing the user's email. "Pending" items are
 the non-closed states of the process template (e.g. `["New", "Active"]`).
+`parent` filters on `[System.Parent]` and matches **direct children only**
+(Services / Server 2019.1+; walk levels iteratively for a whole tree).
 `area_path`/`iteration_path` filter with WIQL `UNDER` — see
 *Area path / iteration path*.
 
-CLI: `devops-utils azdo list --project NAME [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--area-path P] [--iteration-path P] [--top N]`
+CLI: `devops-utils azdo list --project NAME [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--parent ID] [--area-path P] [--iteration-path P] [--top N]`
 (`--state`/`--type`/`--tag` are repeatable; `--mine` = `--assigned-to @Me`.)
 
 ### Search work items
@@ -196,6 +199,7 @@ azdo_search_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,    # email, display name, or "@Me"
     tags: list[str] | None = None,
+    parent: int | None = None,
     area_path: str | None = None,
     iteration_path: str | None = None,
     top: int = 50,
@@ -205,7 +209,7 @@ azdo_search_work_items(
 Matches `text` against title **and** description via WIQL `CONTAINS`; the
 other filters compose the same way as `azdo_list_work_items`.
 
-CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--area-path P] [--iteration-path P] [--top N]`
+CLI: `devops-utils azdo search --project NAME "TEXT" [--state S ...] [--type T ...] [--assigned-to WHO | --mine] [--tag X ...] [--parent ID] [--area-path P] [--iteration-path P] [--top N]`
 
 ### Get one work item
 

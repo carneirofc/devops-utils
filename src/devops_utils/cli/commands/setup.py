@@ -330,6 +330,29 @@ def plugin_cmd(ctx: click.Context, dest: str | None, force: bool, yes: bool) -> 
     help="State meaning 'closed' in the project's process template.",
 )
 @click.option(
+    "--org-url",
+    default=None,
+    help="Azure DevOps organization/collection URL recorded in the defaults "
+    "table (AZURE_DEVOPS_ORG_URL stays authoritative at runtime).",
+)
+@click.option(
+    "--parent-epic",
+    default=None,
+    type=int,
+    help="Work-item id of the Epic new items are parented under by default.",
+)
+@click.option(
+    "--area-path",
+    default=None,
+    help="Default area path for created items and scoped queries.",
+)
+@click.option(
+    "--default-tag",
+    "default_tags",
+    multiple=True,
+    help="Tag applied to every created item and used to scope queries (repeatable).",
+)
+@click.option(
     "--dest",
     default=None,
     help="Repository root to install into (defaults to the current directory).",
@@ -340,6 +363,10 @@ def tracker_cmd(
     ctx: click.Context,
     project_name: str,
     done_state: str,
+    org_url: str | None,
+    parent_epic: int | None,
+    area_path: str | None,
+    default_tags: tuple[str, ...],
     dest: str | None,
     force: bool,
     yes: bool,
@@ -348,13 +375,20 @@ def tracker_cmd(
 
     Writes docs/agents/issue-tracker.md and docs/agents/triage-labels.md so
     skills that read the repo's tracker config use `devops-utils azdo` (Azure
-    DevOps work items) instead of the default GitHub `gh` CLI.
+    DevOps work items) instead of the default GitHub `gh` CLI. The optional
+    org URL / parent Epic / area path / default tags land in the config's
+    "Defaults for this repo" table, which agents apply on every create and
+    query (see the setup-issue-tracker skill for a guided, validated flow).
     """
     base = Path(dest) if dest is not None else Path.cwd()
     written, skipped = install.install_tracker(
         base,
         project_name,
         done_state=done_state,
+        org_url=org_url,
+        parent_epic=parent_epic,
+        area_path=area_path,
+        default_tags=list(default_tags) or None,
         force=force,
         confirm=_overwriter(ctx, force or yes),
     )

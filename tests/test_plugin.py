@@ -13,8 +13,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIRS = (
     "azure-devops-work-items",
     "azure-devops-research",
+    "azure-devops-find-workitems",
     "git-history-workitems",
     "sanitize-manifest",
+    "setup-issue-tracker",
 )
 AGENT_FILES = (
     "azdo-workitem-analyst.md",

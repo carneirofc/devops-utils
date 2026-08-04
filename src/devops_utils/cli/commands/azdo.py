@@ -100,6 +100,12 @@ def repos(project: str | None, name: str | None) -> None:
     "--tag", "tags", multiple=True, help="Require a tag (repeatable, AND semantics)."
 )
 @click.option(
+    "--parent",
+    default=None,
+    type=int,
+    help="Only direct children of this parent work-item id.",
+)
+@click.option(
     "--area-path", default=None, help="Filter by area path (includes sub-areas)."
 )
 @click.option(
@@ -115,6 +121,7 @@ def list_(
     assigned_to: str | None,
     mine: bool,
     tags: tuple[str, ...],
+    parent: int | None,
     area_path: str | None,
     iteration_path: str | None,
     top: int,
@@ -127,6 +134,7 @@ def list_(
             types=list(types) or None,
             assigned_to=_resolve_assignee(assigned_to, mine),
             tags=list(tags) or None,
+            parent=parent,
             area_path=area_path,
             iteration_path=iteration_path,
             top=top,
@@ -149,6 +157,12 @@ def list_(
     "--tag", "tags", multiple=True, help="Require a tag (repeatable, AND semantics)."
 )
 @click.option(
+    "--parent",
+    default=None,
+    type=int,
+    help="Only direct children of this parent work-item id.",
+)
+@click.option(
     "--area-path", default=None, help="Filter by area path (includes sub-areas)."
 )
 @click.option(
@@ -165,6 +179,7 @@ def search(
     assigned_to: str | None,
     mine: bool,
     tags: tuple[str, ...],
+    parent: int | None,
     area_path: str | None,
     iteration_path: str | None,
     top: int,
@@ -178,6 +193,7 @@ def search(
             types=list(types) or None,
             assigned_to=_resolve_assignee(assigned_to, mine),
             tags=list(tags) or None,
+            parent=parent,
             area_path=area_path,
             iteration_path=iteration_path,
             top=top,

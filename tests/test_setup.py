@@ -295,7 +295,37 @@ def test_install_tracker_renders_placeholders(tmp_path):
     assert '--state "Done"' in text
     assert "{project}" not in text
     assert "{done_state}" not in text
+    # unset defaults render readable fallbacks, never raw placeholders
+    assert "{org_url}" not in text
+    assert "{parent_epic}" not in text
+    assert "{area_path}" not in text
+    assert "{default_tags}" not in text
+    assert "{create_flags}" not in text
+    assert "{query_flags}" not in text
+    assert "AZURE_DEVOPS_ORG_URL" in text
+    assert "(none)" in text
     assert "ready-for-agent" in labels.read_text(encoding="utf-8")
+
+
+def test_install_tracker_renders_defaults(tmp_path):
+    install.install_tracker(
+        tmp_path,
+        "Contoso",
+        done_state="Done",
+        org_url="https://dev.azure.com/contoso",
+        parent_epic=1400,
+        area_path="Contoso\\Payments",
+        default_tags=["web-app", "backend"],
+    )
+    text = (tmp_path / "docs" / "agents" / "issue-tracker.md").read_text(
+        encoding="utf-8"
+    )
+    assert "https://dev.azure.com/contoso" in text
+    assert "#1400" in text
+    assert "--parent 1400" in text
+    assert "--area-path 'Contoso\\Payments'" in text
+    assert "--tag 'web-app' --tag 'backend'" in text
+    assert "web-app, backend" in text
 
 
 def test_install_tracker_skips_existing_without_force(tmp_path):
@@ -320,6 +350,14 @@ def test_setup_tracker_cli(tmp_path):
             "Contoso",
             "--done-state",
             "Resolved",
+            "--org-url",
+            "https://dev.azure.com/contoso",
+            "--parent-epic",
+            "1400",
+            "--area-path",
+            "Contoso\\Payments",
+            "--default-tag",
+            "web-app",
             "--dest",
             str(tmp_path),
         ],
@@ -330,6 +368,10 @@ def test_setup_tracker_cli(tmp_path):
     )
     assert "azdo create --project Contoso" in text
     assert 'update <id> --state "Resolved"' in text
+    assert "https://dev.azure.com/contoso" in text
+    assert "--parent 1400" in text
+    assert "--area-path 'Contoso\\Payments'" in text
+    assert "--tag 'web-app'" in text
 
 
 def test_setup_all_skips_mcp_by_default(tmp_path):

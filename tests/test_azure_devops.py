@@ -800,6 +800,30 @@ def test_search_work_items_supports_assignee_and_tags():
     assert "[System.Tags] CONTAINS 'a''b'" in wiql
 
 
+def test_list_work_items_filters_by_parent():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    list_work_items(_client(handler), "Proj", parent=1400)
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.Parent] = 1400" in wiql
+
+
+def test_search_work_items_filters_by_parent():
+    calls: list[httpx.Request] = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"workItems": []})
+
+    search_work_items(_client(handler), "Proj", "needle", parent=1400)
+    wiql = json.loads(calls[0].content)["query"]
+    assert "[System.Parent] = 1400" in wiql
+
+
 def test_list_work_items_filters_by_area_and_iteration_path():
     calls: list[httpx.Request] = []
 

@@ -218,26 +218,83 @@ def _trackers_resource():
     return files("devops_utils.agent.trackers")
 
 
+def _tracker_substitutions(
+    project_name: str,
+    done_state: str,
+    org_url: str | None,
+    parent_epic: int | None,
+    area_path: str | None,
+    default_tags: list[str] | None,
+) -> dict[str, str]:
+    """Compute the placeholder → value map for the tracker templates.
+
+    Display placeholders (``{org_url}``, ``{parent_epic}``, ``{area_path}``,
+    ``{default_tags}``) always render something readable, falling back to an
+    instruction when the setting was not configured. The flag placeholders
+    (``{create_flags}``, ``{query_flags}``) expand to ready-to-paste CLI
+    fragments (empty when nothing was configured) so command examples in the
+    template stay copy-pasteable.
+    """
+    tags = default_tags or []
+    create_flags = ""
+    query_flags = ""
+    if parent_epic is not None:
+        create_flags += f" --parent {parent_epic}"
+    if area_path:
+        create_flags += f" --area-path '{area_path}'"
+        query_flags += f" --area-path '{area_path}'"
+    for tag in tags:
+        create_flags += f" --tag '{tag}'"
+        query_flags += f" --tag '{tag}'"
+    return {
+        "{project}": project_name,
+        "{done_state}": done_state,
+        "{org_url}": org_url or "set via `AZURE_DEVOPS_ORG_URL`",
+        "{parent_epic}": (
+            f"#{parent_epic}"
+            if parent_epic is not None
+            else "(none — find or create the proper Epic/Feature first)"
+        ),
+        "{parent_epic_id}": str(parent_epic)
+        if parent_epic is not None
+        else "<epic-id>",
+        "{area_path}": area_path or "(project root)",
+        "{default_tags}": ", ".join(tags) if tags else "(none)",
+        "{create_flags}": create_flags,
+        "{query_flags}": query_flags,
+    }
+
+
 def install_tracker(
     dest: Path,
     project_name: str,
     done_state: str = "Closed",
+    org_url: str | None = None,
+    parent_epic: int | None = None,
+    area_path: str | None = None,
+    default_tags: list[str] | None = None,
     force: bool = False,
     confirm: ConfirmOverwrite | None = None,
 ) -> tuple[list[Path], list[Path]]:
     """Write the Azure DevOps tracker config for mattpocock-style skills.
 
     Renders the bundled templates (``agent/trackers/*.md``) into
-    ``dest/docs/agents/``, substituting the ``{project}`` and ``{done_state}``
-    placeholders. The resulting ``issue-tracker.md`` / ``triage-labels.md`` are
-    the config files skills like mattpocock/skills read to learn how to talk to
-    the issue tracker.
+    ``dest/docs/agents/``, substituting the placeholders computed by
+    :func:`_tracker_substitutions`. The resulting ``issue-tracker.md`` /
+    ``triage-labels.md`` are the config files skills like mattpocock/skills
+    read to learn how to talk to the issue tracker.
 
     Args:
         dest: Repository root to install into (files go to ``docs/agents/``).
         project_name: Azure DevOps team project name.
         done_state: ``System.State`` value that means "closed" in the project's
             process template (e.g. ``Closed``, ``Done``, ``Resolved``).
+        org_url: Azure DevOps organization/collection URL recorded in the
+            defaults table (the env var stays authoritative at runtime).
+        parent_epic: Work-item id of the Epic new items are parented under.
+        area_path: Default ``System.AreaPath`` for creates and queries.
+        default_tags: Tags applied to every created item and used to scope
+            queries.
         force: Overwrite existing files instead of skipping them.
         confirm: Asked per existing file when ``force`` is not set; ``None``
             skips existing files outright.
@@ -245,16 +302,17 @@ def install_tracker(
     Returns:
         A ``(written, skipped)`` tuple of destination paths.
     """
+    substitutions = _tracker_substitutions(
+        project_name, done_state, org_url, parent_epic, area_path, default_tags
+    )
     written: list[Path] = []
     skipped: list[Path] = []
     for entry in sorted(_trackers_resource().iterdir(), key=lambda e: e.name):
         if not entry.name.endswith(".md"):
             continue
-        text = (
-            entry.read_text(encoding="utf-8")
-            .replace("{project}", project_name)
-            .replace("{done_state}", done_state)
-        )
+        text = entry.read_text(encoding="utf-8")
+        for placeholder, value in substitutions.items():
+            text = text.replace(placeholder, value)
         target = dest / "docs" / "agents" / entry.name
         result = _write(target, text, force, confirm)
         (written if result is not None else skipped).append(target)

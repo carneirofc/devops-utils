@@ -442,6 +442,7 @@ def list_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    parent: int | None = None,
     area_path: str | None = None,
     iteration_path: str | None = None,
     top: int = 50,
@@ -450,8 +451,10 @@ def list_work_items(
 
     ``assigned_to="@Me"`` uses the WIQL ``@Me`` macro, resolving the identity
     behind the token server-side. Each tag becomes an AND-joined
-    ``[System.Tags] CONTAINS`` clause. ``area_path``/``iteration_path`` match
-    the given node and everything under it (Azure Boards area/iteration tree).
+    ``[System.Tags] CONTAINS`` clause. ``parent`` matches direct children of
+    that work item via ``[System.Parent]`` (Azure DevOps Services / Server
+    2019.1+). ``area_path``/``iteration_path`` match the given node and
+    everything under it (Azure Boards area/iteration tree).
     """
     clauses = [f"[System.TeamProject] = '{_esc(project)}'"]
     if states:
@@ -460,6 +463,8 @@ def list_work_items(
         clauses.append(_in_clause("System.WorkItemType", types))
     if assigned_to:
         clauses.append(_assigned_clause(assigned_to))
+    if parent is not None:
+        clauses.append(f"[System.Parent] = {int(parent)}")
     if area_path:
         clauses.append(_under_clause("System.AreaPath", area_path))
     if iteration_path:
@@ -484,14 +489,15 @@ def search_work_items(
     types: list[str] | None = None,
     assigned_to: str | None = None,
     tags: list[str] | None = None,
+    parent: int | None = None,
     area_path: str | None = None,
     iteration_path: str | None = None,
     top: int = 50,
 ) -> list[dict[str, Any]]:
     """Text-search work items by title/description using WIQL ``CONTAINS``.
 
-    Supports the same ``assigned_to`` (incl. ``@Me``), ``tags``, ``area_path``,
-    and ``iteration_path`` filters as :func:`list_work_items`.
+    Supports the same ``assigned_to`` (incl. ``@Me``), ``tags``, ``parent``,
+    ``area_path``, and ``iteration_path`` filters as :func:`list_work_items`.
     """
     term = _esc(text)
     clauses = [
@@ -504,6 +510,8 @@ def search_work_items(
         clauses.append(_in_clause("System.WorkItemType", types))
     if assigned_to:
         clauses.append(_assigned_clause(assigned_to))
+    if parent is not None:
+        clauses.append(f"[System.Parent] = {int(parent)}")
     if area_path:
         clauses.append(_under_clause("System.AreaPath", area_path))
     if iteration_path:

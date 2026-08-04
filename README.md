@@ -305,14 +305,24 @@ GitHub's `gh` CLI by default. To point them at **Azure DevOps work items**
 via devops-utils instead, run in the target repo:
 
 ```bash
-devops-utils setup tracker --project-name MyProject --done-state Closed
+devops-utils setup tracker --project-name MyProject --done-state Closed \
+  --org-url https://dev.azure.com/myorg \
+  --parent-epic 1400 --area-path 'MyProject\MyTeam' --default-tag my-repo
 ```
 
 This writes `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md`
 mapping every tracker operation (create, comment, labels→tags, close, claim,
 blocking links, PR references) to `devops-utils azdo` / the `azdo_*` MCP tools.
 `--done-state` is the state meaning "closed" in your process template
-(`Closed`, `Done`, `Resolved`, …).
+(`Closed`, `Done`, `Resolved`, …). The optional org URL / parent Epic /
+area path / default tags (all repeatable-flag or omit-for-fallback) land in a
+"Defaults for this repo" table that agents apply on every create and query —
+new items go under the right Epic with the right area/tags, and
+pending-issue searches are scoped so this repo's items surface first. For a
+guided flow that asks for each value and validates it against the live
+organization, use the bundled `setup-issue-tracker` skill; the
+`azure-devops-find-workitems` skill holds the matching query recipes
+(by type, tags, `--parent`, area path).
 
 
 Author
