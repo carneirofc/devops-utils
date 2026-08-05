@@ -4,6 +4,7 @@ All functions are pure in the sense that they take an explicit
 :class:`AzureDevOpsClient`; nothing here reads global state or machine creds.
 
 Design notes for cross-compat (cloud + on-prem Server):
+
 - Comments use the ``System.History`` field patch, which every server supports,
   rather than the preview-only ``/comments`` endpoint.
 - Search uses WIQL ``CONTAINS`` rather than the Search extension (a separate host

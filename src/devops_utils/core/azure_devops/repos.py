@@ -1,6 +1,7 @@
 """Git repository queries against the Azure DevOps REST API.
 
 Three search tiers, from most to least portable:
+
 - :func:`list_repositories` with ``name_filter`` — repo metadata, everywhere.
 - :func:`find_repo_items` — file paths via the Git Items API, everywhere.
 - :func:`code_search` — content search via the Search extension, which cloud

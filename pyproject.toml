@@ -36,7 +36,7 @@ tui = ["textual"]
 qt = ["PySide6"]
 azure = ["httpx"]
 agent = []
-docs = ["sphinx", "sphinx_rtd_theme"]
+docs = ["sphinx>=8.2", "sphinx_rtd_theme", "myst-parser"]
 all = ["mcp", "textual", "PySide6", "httpx"]
 
 [project.scripts]

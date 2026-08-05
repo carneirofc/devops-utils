@@ -1,0 +1,65 @@
+name: Deploy docs to GitHub Pages
+
+# Publishes the Sphinx documentation to https://carneirofc.github.io/devops-utils/
+# (the Documentation URL advertised in pyproject.toml). The API reference under
+# /api is generated at build time by sphinx.ext.apidoc, so nothing is committed.
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'pyproject.toml'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # tags needed for hatch-vcs versioning
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      # autodoc imports every module, so the optional backends (mcp, textual,
+      # PySide6, httpx) have to be installed alongside the docs extra.
+      - name: Install project
+        run: uv sync --all-extras
+
+      # -W turns warnings into errors: a broken cross-reference or a docstring
+      # that no longer parses fails the build instead of shipping silently.
+      - name: Build docs
+        run: uv run sphinx-build -W --keep-going -b html docs _site
+
+      - name: Disable Jekyll
+        run: touch _site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

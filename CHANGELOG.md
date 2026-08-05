@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub Pages docs pipeline.** `.github/workflows/pages.yml` builds the
+  Sphinx site on every push to `master` that touches `docs/`, `src/`, or
+  `pyproject.toml` and deploys it to
+  <https://carneirofc.github.io/devops-utils/> via `upload-pages-artifact` /
+  `deploy-pages`. The build runs with `-W`, so a broken cross-reference or an
+  unparseable docstring fails CI instead of shipping.
+- **Generated API reference.** `sphinx.ext.apidoc` renders the `devops_utils`
+  package tree into `docs/api/` at build time (git-ignored), and the agent
+  guides under `docs/agents/` are now part of the site via `myst-parser`.
+
+### Fixed
+
+- **Sphinx build no longer errors out.** `intersphinx_mapping` used the
+  pre-Sphinx-1.7 keyless form, which modern Sphinx rejects outright; `language
+  = None`, `html_theme_path`, and the missing `_static/` directory were also
+  cleaned up. Google-style docstrings now render correctly via
+  `sphinx.ext.napoleon`.
+
 ## [0.11.0] - 2026-08-04
 
 ### Added

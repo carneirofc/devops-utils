@@ -18,8 +18,6 @@ import os
 import sys
 from importlib.metadata import version as _pkg_version
 
-import sphinx_rtd_theme
-
 sys.path.insert(0, os.path.abspath("../src"))
 
 # -- General configuration ------------------------------------------------
@@ -32,10 +30,24 @@ sys.path.insert(0, os.path.abspath("../src"))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx.ext.apidoc",
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
+    "myst_parser",
+]
+
+# Generate the devops_utils API reference at build time, so the tree under
+# docs/api/ never has to be committed or refreshed by hand.
+apidoc_modules = [
+    {
+        "path": "../src/devops_utils",
+        "destination": "api",
+        "separate_modules": True,
+        "automodule_options": {"members", "undoc-members", "show-inheritance"},
+    },
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -45,7 +57,7 @@ templates_path = ["_templates"]
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 
 # The encoding of source files.
 #
@@ -76,7 +88,7 @@ version = ".".join(release.split(".")[:2])
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -90,7 +102,14 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# api/modules.rst is apidoc's flat module list; index.rst links the package
+# tree directly, so it would only show up as an orphan page.
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "api/modules.rst"]
+
+# Render "Attributes:" sections as :ivar: fields rather than standalone
+# .. attribute:: directives, which would collide with the ones autodoc already
+# emits for dataclass fields.
+napoleon_use_ivar = True
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -138,8 +157,8 @@ html_theme = "sphinx_rtd_theme"
 #
 # html_theme_options = {}
 
-# Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+# sphinx_rtd_theme registers itself as an entry point; html_theme_path is no
+# longer needed (and get_html_theme_path is deprecated).
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
@@ -164,7 +183,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path: list[str] = []
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -355,4 +374,4 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}

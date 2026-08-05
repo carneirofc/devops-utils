@@ -1,18 +1,23 @@
-.. devops_utils documentation master file, created by
-   sphinx-quickstart on Thu Mar 15 16:47:29 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+devops-utils
+============
 
-Welcome to devops_utils documentation!
-==========================================
-
-Contents:
+A set of utility tools for DevOps, usable as a CLI, TUI, Qt UI, MCP server, and
+agent tools.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Agent guides
 
-    devops_utils <devops_utils/devops_utils>
+   agents/domain
+   agents/azure-devops
+   agents/issue-tracker
+   agents/triage-labels
 
+.. toctree::
+   :maxdepth: 2
+   :caption: API reference
+
+   api/devops_utils
 
 Indices and tables
 ==================
@@ -20,4 +25,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
