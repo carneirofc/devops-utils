@@ -5,13 +5,16 @@ Description
 ![Latest tag](https://img.shields.io/github/tag/carneirofc/devops-utils.svg?style=flat)
 [![Latest release](https://img.shields.io/github/release/carneirofc/devops-utils.svg?style=flat)](https://github.com/carneirofc/devops-utils/releases)
 [![PyPI version fury.io](https://badge.fury.io/py/devops-utils.svg)](https://pypi.python.org/pypi/devops-utils/)
-[![Read the Docs](https://readthedocs.org/projects/spack/badge/?version=latest)](https://carneirofc.github.io/devops-utils/)
+[![Documentation](https://img.shields.io/badge/docs-github.io-blue.svg?style=flat)](https://carneirofc.github.io/devops-utils/)
 
 A set of utility tools for DevOps, built around a dependency-free core that is
 exposed through several optional surfaces: a **CLI**, a **Qt UI**, a **TUI**, an
 **MCP server**, **agent tools**, and a **Claude Code plugin**.
 
 Requires Python 3.12+.
+
+Full documentation — agent guides and the generated API reference — lives at
+**<https://carneirofc.github.io/devops-utils/>**.
 
 
 Install
