@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **User guide.** Five task-oriented pages under `docs/guide/` — install and
+  credential setup, an Azure DevOps CLI cookbook (finding work, changing work,
+  diagnosing failed pipelines, repo search, `jq` recipes), bulk plan files with
+  worked examples, manifest sanitizing with before/after output, and wiring the
+  tools into an AI agent (setup, MCP, skills, subagents, plugin, tracker
+  config). The site's landing page now points at them.
 - **GitHub Pages docs pipeline.** `.github/workflows/pages.yml` builds the
   Sphinx site on every push to `master` that touches `docs/`, `src/`, or
   `pyproject.toml` and deploys it to
@@ -18,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Generated API reference.** `sphinx.ext.apidoc` renders the `devops_utils`
   package tree into `docs/api/` at build time (git-ignored), and the agent
   guides under `docs/agents/` are now part of the site via `myst-parser`.
+
+### Changed
+
+- **README slimmed to a front door.** Install, a short tour of representative
+  commands, and a table linking each published guide; the long-form Azure
+  DevOps, plan-file, setup and plugin sections now live in the docs site
+  instead of being duplicated here.
 
 ### Fixed
 
