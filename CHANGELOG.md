@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MCPServer`/`Context` from `mcp.server.mcpserver` instead of the removed
   `mcp.server.fastmcp`. Dev tool floors were raised (ruff 0.16, mypy 2.3,
   pytest 9, bandit 1.9, pre-commit 4.6), and the pre-commit hooks and GitHub
-  Actions were bumped (`checkout@v7`, `setup-uv@v10`,
+  Actions were bumped (`checkout@v7`, `setup-uv@v10.2.0`,
   `upload-pages-artifact@v5` with `include-hidden-files`, `deploy-pages@v5`).
 - **CI runs `pytest`.** The lint workflow now runs the test suite.
 - **README slimmed to a front door.** Install, a short tour of representative
