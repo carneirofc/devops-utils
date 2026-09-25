@@ -65,7 +65,7 @@ def _confirm_write(fn: Callable[..., Any], ctx_type: type) -> Callable[..., Any]
 
     The returned async tool preserves ``fn``'s name, docstring, and parameters
     (so the MCP input schema is unchanged) and injects a keyword-only ``ctx``
-    parameter annotated with ``ctx_type`` (FastMCP's ``Context``). FastMCP detects
+    parameter annotated with ``ctx_type`` (MCPServer's ``Context``). MCPServer detects
     the context by its annotation and hides it from the tool's input schema.
 
     Before executing, the wrapper elicits a confirmation from the client:
@@ -110,8 +110,8 @@ def _confirm_write(fn: Callable[..., Any], ctx_type: type) -> Callable[..., Any]
         }
 
     # Rebuild the public signature as fn's params plus an injected, keyword-only
-    # ``ctx`` so FastMCP builds the same input schema and supplies the Context.
-    # FastMCP finds the context param via ``get_type_hints`` (i.e. __annotations__),
+    # ``ctx`` so MCPServer builds the same input schema and supplies the Context.
+    # MCPServer finds the context param via ``get_type_hints`` (i.e. __annotations__),
     # so ``ctx`` must be added there too — as a fresh dict, since ``functools.wraps``
     # aliases ``fn``'s annotations and mutating it would corrupt the original tool.
     fn_sig = inspect.signature(fn)
@@ -127,14 +127,14 @@ def _confirm_write(fn: Callable[..., Any], ctx_type: type) -> Callable[..., Any]
 
 def _build_server():
     try:
-        from mcp.server.fastmcp import Context, FastMCP
+        from mcp.server.mcpserver import Context, MCPServer
     except ModuleNotFoundError as exc:  # pragma: no cover - trivial guard
         raise SystemExit(
             "The MCP server requires the 'mcp' extra. "
             "Install it with: pip install devops-utils[mcp]"
         ) from exc
 
-    server = FastMCP("devops-utils")
+    server = MCPServer("devops-utils")
 
     @server.tool()
     def sanitize_manifest(manifest: str) -> str:

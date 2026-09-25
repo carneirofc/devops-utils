@@ -310,8 +310,10 @@ feature = tools.azdo_create_work_item(
     "Contoso", "Feature", "Guest checkout", parent=epic["id"]
 )
 story = tools.azdo_create_work_item(
-    "Contoso", "User Story",
-    "As a guest I can pay without an account", parent=feature["id"],
+    "Contoso",
+    "User Story",
+    "As a guest I can pay without an account",
+    parent=feature["id"],
 )
 ```
 
@@ -369,12 +371,16 @@ devops-utils azdo update 1421 \
 
 ```python
 tools.azdo_create_work_item(
-    "Contoso", "User Story", "Guest checkout", parent=1400,
-    area_path="Contoso\\Payments", iteration_path="Contoso\\Sprint 3",
+    "Contoso",
+    "User Story",
+    "Guest checkout",
+    parent=1400,
+    area_path="Contoso\\Payments",
+    iteration_path="Contoso\\Sprint 3",
 )
 tools.azdo_list_work_items(
     "Contoso",
-    area_path="Contoso\\Payments",        # includes Contoso\Payments\Checkout
+    area_path="Contoso\\Payments",  # includes Contoso\Payments\Checkout
     iteration_path="Contoso\\Sprint 3",
     states=["New", "Active"],
 )
@@ -396,7 +402,9 @@ parameters don't cover — process-specific fields like
 
 ```python
 tools.azdo_create_work_item(
-    "Contoso", "Bug", "Login page 500s under load",
+    "Contoso",
+    "Bug",
+    "Login page 500s under load",
     fields={"Microsoft.VSTS.Common.Priority": 1, "Custom.RiskLevel": "High"},
 )
 tools.azdo_update_work_item(1421, fields={"Custom.RiskLevel": "Low"})
@@ -484,16 +492,20 @@ tools.azdo_update_work_item(
     },
 )
 feature = tools.azdo_create_work_item(
-    "Contoso", "Feature", "Guest checkout", parent=1400,
-    area_path="Contoso\\Payments", iteration_path="Contoso\\Sprint 3",
+    "Contoso",
+    "Feature",
+    "Guest checkout",
+    parent=1400,
+    area_path="Contoso\\Payments",
+    iteration_path="Contoso\\Sprint 3",
     fields={
         "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
         "Microsoft.VSTS.Scheduling.TargetDate": "2026-08-31",
-        "Microsoft.VSTS.Scheduling.Effort": 13,      # real number, not "13"
+        "Microsoft.VSTS.Scheduling.Effort": 13,  # real number, not "13"
     },
 )
 dates = tools.azdo_get_work_item(1400, full=True)["fields"]
-dates["Microsoft.VSTS.Scheduling.TargetDate"]        # '2026-09-30T00:00:00Z'
+dates["Microsoft.VSTS.Scheduling.TargetDate"]  # '2026-09-30T00:00:00Z'
 ```
 
 Always confirm a scheduling write with `azdo_get_work_item(id, full=True)` —
@@ -617,12 +629,19 @@ devops-utils azdo get 1421 --relations | jq '.relations'
 
 ```python
 tools.azdo_add_work_item_link(
-    1421, "pull_request", "88", project="Contoso", repo="web-app", comment="Fix",
+    1421,
+    "pull_request",
+    "88",
+    project="Contoso",
+    repo="web-app",
+    comment="Fix",
 )
 tools.azdo_add_work_item_link(1421, "build", "20345")
 tools.azdo_add_work_item_link(1421, "predecessor", "1399")
 tools.azdo_add_work_item_link(
-    1421, "hyperlink", "https://status.contoso.com/incidents/42",
+    1421,
+    "hyperlink",
+    "https://status.contoso.com/incidents/42",
 )
 tools.azdo_get_work_item(1421, relations=True)["relations"]
 # [{'kind': 'pull_request', 'target': 'vstfs:///Git/PullRequestId/...', 'name': 'Pull Request', 'comment': 'Fix'},
@@ -800,6 +819,7 @@ devops-utils azdo apply plan.yml --out results.json
 
 ```python
 from devops_utils.agent import tools
+
 results = tools.azdo_apply_plan(open("plan.yml", encoding="utf-8").read())
 ```
 
@@ -808,8 +828,17 @@ results = tools.azdo_apply_plan(open("plan.yml", encoding="utf-8").read())
 Every work-item op returns a trimmed dict (`_trim` in `workitems.py`):
 
 ```python
-{"id", "type", "title", "state", "assigned_to", "tags",
- "area_path", "iteration_path", "url"}
+{
+    "id",
+    "type",
+    "title",
+    "state",
+    "assigned_to",
+    "tags",
+    "area_path",
+    "iteration_path",
+    "url",
+}
 ```
 
 `list`/`search` return a `list` of these; `get`/`create`/`comment`/`tag`/`link`/
@@ -845,7 +874,9 @@ devops-utils azdo link 1421 --kind pull_request --value 88 \
 from devops_utils.agent import tools
 
 wi = tools.azdo_create_work_item(
-    "Contoso", "Bug", "Login page 500s under load",
+    "Contoso",
+    "Bug",
+    "Login page 500s under load",
     description="<p>Repro at 200 rps.</p>",
     assigned_to="dev@contoso.com",
     tags=["urgent", "regression"],
@@ -853,8 +884,12 @@ wi = tools.azdo_create_work_item(
 tools.azdo_set_work_item_tags(wi["id"], ["needs-review"], mode="add")
 tools.azdo_comment_work_item(wi["id"], "Root cause: connection pool exhaustion.")
 tools.azdo_add_work_item_link(
-    wi["id"], "pull_request", "88",
-    project="Contoso", repo="web-app", comment="Fix",
+    wi["id"],
+    "pull_request",
+    "88",
+    project="Contoso",
+    repo="web-app",
+    comment="Fix",
 )
 ```
 
@@ -870,18 +905,24 @@ from devops_utils.agent import tools
 AREA = "Contoso\\Payments"
 
 epic = tools.azdo_create_work_item(
-    "Contoso", "Epic", "Self-service checkout",
+    "Contoso",
+    "Epic",
+    "Self-service checkout",
     area_path=AREA,
     fields={
         "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
-        "Microsoft.VSTS.Scheduling.TargetDate": "2026-12-18",   # a whole quarter
+        "Microsoft.VSTS.Scheduling.TargetDate": "2026-12-18",  # a whole quarter
         "Microsoft.VSTS.Common.BusinessValue": 80,
     },
 )
 
 feature = tools.azdo_create_work_item(
-    "Contoso", "Feature", "Guest checkout", parent=epic["id"],
-    area_path=AREA, iteration_path="Contoso\\Sprint 3",
+    "Contoso",
+    "Feature",
+    "Guest checkout",
+    parent=epic["id"],
+    area_path=AREA,
+    iteration_path="Contoso\\Sprint 3",
     fields={
         "Microsoft.VSTS.Scheduling.StartDate": "2026-08-03",
         "Microsoft.VSTS.Scheduling.TargetDate": "2026-08-31",
@@ -890,27 +931,34 @@ feature = tools.azdo_create_work_item(
 )
 
 story = tools.azdo_create_work_item(
-    "Contoso", "User Story",
-    "As a guest I can pay without an account", parent=feature["id"],
-    area_path=AREA, iteration_path="Contoso\\Sprint 3",
-    assigned_to="dev@contoso.com", tags=["checkout"],
+    "Contoso",
+    "User Story",
+    "As a guest I can pay without an account",
+    parent=feature["id"],
+    area_path=AREA,
+    iteration_path="Contoso\\Sprint 3",
+    assigned_to="dev@contoso.com",
+    tags=["checkout"],
     fields={
         "Microsoft.VSTS.Scheduling.StoryPoints": 5,
-        "Microsoft.VSTS.Common.AcceptanceCriteria":
-            "<ul><li>Order completes with an email only</li></ul>",
+        "Microsoft.VSTS.Common.AcceptanceCriteria": "<ul><li>Order completes with an email only</li></ul>",
     },
 )
 
 # wire it to the code and to the work that must land first
 tools.azdo_add_work_item_link(
-    story["id"], "pull_request", "88", project="Contoso", repo="web-app",
+    story["id"],
+    "pull_request",
+    "88",
+    project="Contoso",
+    repo="web-app",
 )
 tools.azdo_add_work_item_link(story["id"], "predecessor", "1399")
 
 # verify: dates and relations both need the non-trimmed reads
 plan = tools.azdo_get_work_item(feature["id"], relations=True, full=True)
-plan["fields"]["Microsoft.VSTS.Scheduling.TargetDate"]   # '2026-08-31T00:00:00Z'
-plan["relations"]                                        # parent → epic id
+plan["fields"]["Microsoft.VSTS.Scheduling.TargetDate"]  # '2026-08-31T00:00:00Z'
+plan["relations"]  # parent → epic id
 ```
 
 ```bash

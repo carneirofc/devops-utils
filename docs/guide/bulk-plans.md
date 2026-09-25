@@ -161,10 +161,12 @@ the plan as a dict:
 ```python
 from devops_utils.agent.tools import azdo_apply_plan
 
-results = azdo_apply_plan({
-    "project": "MyProject",
-    "items": [{"type": "Task", "title": "Fix flaky test"}],
-})
+results = azdo_apply_plan(
+    {
+        "project": "MyProject",
+        "items": [{"type": "Task", "title": "Fix flaky test"}],
+    }
+)
 ```
 
 Over MCP it is gated by the same human confirmation as every other write tool —

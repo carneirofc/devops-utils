@@ -80,7 +80,7 @@ from devops_utils.agent import tools
 tools.azdo_list_work_items(
     "P", states=["New", "Active"], tags=["<TAG>"], area_path="<AREA>"
 )
-tools.azdo_list_work_items("P", parent=EPIC_ID)                 # Epic's children
+tools.azdo_list_work_items("P", parent=EPIC_ID)  # Epic's children
 tools.azdo_search_work_items("P", "checkout timeout", types=["Bug"])
 ```
 

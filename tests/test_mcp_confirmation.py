@@ -174,8 +174,8 @@ def test_server_registers_gated_tools_async_with_context_and_clean_schema():
     tool = srv._tool_manager.get_tool("azdo_comment_work_item")
     assert tool.is_async
     assert tool.context_kwarg == "ctx"
-    assert "ctx" not in by_name["azdo_comment_work_item"].inputSchema["properties"]
-    assert set(by_name["azdo_comment_work_item"].inputSchema["properties"]) == {
+    assert "ctx" not in by_name["azdo_comment_work_item"].input_schema["properties"]
+    assert set(by_name["azdo_comment_work_item"].input_schema["properties"]) == {
         "work_item_id",
         "text",
     }

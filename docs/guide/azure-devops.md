@@ -272,7 +272,9 @@ Every command here exists as an MCP tool (`azdo_*`, served by
 ```python
 from devops_utils.agent import tools
 
-for item in tools.azdo_list_work_items("MyProject", states=["Active"], assigned_to="@Me"):
+for item in tools.azdo_list_work_items(
+    "MyProject", states=["Active"], assigned_to="@Me"
+):
     print(item["id"], item["title"])
 ```
 

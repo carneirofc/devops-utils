@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependencies upgraded; MCP SDK v2.** All locked dependencies were
+  upgraded. The `mcp` extra now requires `mcp>=2`, and the server uses
+  `MCPServer`/`Context` from `mcp.server.mcpserver` instead of the removed
+  `mcp.server.fastmcp`. Dev tool floors were raised (ruff 0.16, mypy 2.3,
+  pytest 9, bandit 1.9, pre-commit 4.6), and the pre-commit hooks and GitHub
+  Actions were bumped (`checkout@v7`, `setup-uv@v10`,
+  `upload-pages-artifact@v5` with `include-hidden-files`, `deploy-pages@v5`).
+- **CI runs `pytest`.** The lint workflow now runs the test suite.
 - **README slimmed to a front door.** Install, a short tour of representative
   commands, and a table linking each published guide; the long-form Azure
   DevOps, plan-file, setup and plugin sections now live in the docs site
@@ -34,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`devops-utils-mcp` works with `mcp` 2.x.** Before this, a fresh install
+  resolved `mcp` 2.x and the server exited at startup, claiming the `mcp`
+  extra was missing.
+- **pre-commit mypy hook passes.** It now installs `click`, so the
+  `click.confirm` return type is no longer `Any`.
 - **Sphinx build no longer errors out.** `intersphinx_mapping` used the
   pre-Sphinx-1.7 keyless form, which modern Sphinx rejects outright; `language
   = None`, `html_theme_path`, and the missing `_static/` directory were also

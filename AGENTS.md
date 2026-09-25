@@ -30,6 +30,16 @@ repo" table agents apply on every create/query. Templates:
 `src/devops_utils/agent/trackers/`. The `setup-issue-tracker` skill wraps this
 command in a prompt-based flow validated against the live organization.
 
+## MCP server
+
+`src/devops_utils/mcp/server.py` targets the MCP Python SDK v2 (`mcp>=2`):
+`from mcp.server.mcpserver import Context, MCPServer`. The v1
+`mcp.server.fastmcp` path no longer exists. Tool models use snake_case
+(`input_schema`). Every write tool goes through the `_confirm_write` elicitation
+gate. v2 validates elicitation schemas strictly, so `_confirm_schema` may only
+use primitive fields. `tests/test_mcp_confirmation.py` covers registration and
+the gate.
+
 ## Agent skills
 
 ### Azure DevOps work items
@@ -79,3 +89,24 @@ Triage uses the default label vocabulary (`needs-triage`, `needs-info`, `ready-f
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Verification
+
+Run the checks CI runs (`.github/workflows/lint.yml`, `security.yml`, `pages.yml`):
+
+```bash
+uv sync --all-extras --dev
+uv run pytest                       # includes the plugin-tree drift guard
+uv run ruff check . && uv run ruff format --check .
+uv run mypy
+uv run bandit -r src
+uv run pre-commit run --all-files
+```
+
+- ruff also formats the Python blocks in `.md` files. After reformatting a
+  bundled skill, re-run `devops-utils setup plugin --force` so
+  `plugins/devops-utils/` stays in sync.
+
+## Child Index
+
+No child AGENTS.md files. This root doc owns the whole tree.
