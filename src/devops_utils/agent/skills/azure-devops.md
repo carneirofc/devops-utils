@@ -368,7 +368,9 @@ devops-utils azdo link 1421 --kind pull_request --value 88 \
 from devops_utils.agent import tools
 
 wi = tools.azdo_create_work_item(
-    "Contoso", "Bug", "Login page 500s under load",
+    "Contoso",
+    "Bug",
+    "Login page 500s under load",
     description="<p>Repro at 200 rps.</p>",
     assigned_to="dev@contoso.com",
     tags=["urgent", "regression"],
@@ -376,8 +378,12 @@ wi = tools.azdo_create_work_item(
 tools.azdo_set_work_item_tags(wi["id"], ["needs-review"], mode="add")
 tools.azdo_comment_work_item(wi["id"], "Root cause: connection pool exhaustion.")
 tools.azdo_add_work_item_link(
-    wi["id"], "pull_request", "88",
-    project="Contoso", repo="web-app", comment="Fix",
+    wi["id"],
+    "pull_request",
+    "88",
+    project="Contoso",
+    repo="web-app",
+    comment="Fix",
 )
 ```
 

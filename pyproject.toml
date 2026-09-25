@@ -31,13 +31,13 @@ Repository = "https://github.com/carneirofc/devops-utils"
 Documentation = "https://carneirofc.github.io/devops-utils/"
 
 [project.optional-dependencies]
-mcp = ["mcp"]
+mcp = ["mcp>=2"]
 tui = ["textual"]
 qt = ["PySide6"]
 azure = ["httpx"]
 agent = []
 docs = ["sphinx", "sphinx_rtd_theme"]
-all = ["mcp", "textual", "PySide6", "httpx"]
+all = ["mcp>=2", "textual", "PySide6", "httpx"]
 
 [project.scripts]
 devops-utils = "devops_utils.cli.main:cli"
@@ -45,11 +45,11 @@ devops-utils-mcp = "devops_utils.mcp.server:main"
 
 [dependency-groups]
 dev = [
-    "bandit>=1.7",
-    "pytest>=8",
-    "mypy>=1.11",
-    "ruff>=0.6",
-    "pre-commit>=3.8",
+    "bandit>=1.9",
+    "pytest>=9",
+    "mypy>=2.3",
+    "ruff>=0.16",
+    "pre-commit>=4.6",
     "types-pyyaml",
 ]
 

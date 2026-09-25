@@ -12,6 +12,13 @@ instead of `~/.claude`. See `src/devops_utils/cli/commands/setup.py`.
 mattpocock-style skills drive Azure DevOps work items through `devops-utils azdo`
 instead of the default `gh` CLI. Templates: `src/devops_utils/agent/trackers/`.
 
+## MCP server
+
+`src/devops_utils/mcp/server.py` targets the MCP Python SDK v2 (`mcp>=2`):
+`from mcp.server import MCPServer`. The v1 `mcp.server.fastmcp.FastMCP` path no
+longer exists. Tools are registered from `devops_utils.agent.tools`. When you
+add or remove a tool, update the count in `tests/test_mcp_server.py`.
+
 ## Agent skills
 
 ### Azure DevOps work items
@@ -32,3 +39,21 @@ Triage uses the default label vocabulary (`needs-triage`, `needs-info`, `ready-f
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Verification
+
+Run the same checks CI runs (`.github/workflows/lint.yml`, `security.yml`):
+
+```bash
+uv sync --all-extras --dev
+uv run pytest
+uv run ruff check . && uv run ruff format --check .   # ruff also formats Python blocks in .md
+uv run mypy
+uv run bandit -r src
+uv run pre-commit run --all-files                   # also type-checks docs/conf.py
+```
+
+## Child Index
+
+No child AGENTS.md files. The package is small enough for this root doc to own
+the whole tree.

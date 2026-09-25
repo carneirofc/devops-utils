@@ -12,7 +12,7 @@ from devops_utils.core.sanitizer import sanitize as _sanitize
 
 def _build_server():
     try:
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server import MCPServer
     except ModuleNotFoundError as exc:  # pragma: no cover - trivial guard
         raise SystemExit(
             "The MCP server requires the 'mcp' extra. "
@@ -21,7 +21,7 @@ def _build_server():
 
     from devops_utils.agent import tools as agent_tools
 
-    server = FastMCP("devops-utils")
+    server = MCPServer("devops-utils")
 
     @server.tool()
     def sanitize_manifest(manifest: str) -> str:

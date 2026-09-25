@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgraded all locked dependencies. The `mcp` extra now requires the MCP SDK
+  v2 (`mcp>=2`). The server uses `MCPServer` instead of the removed
+  `FastMCP`.
+- Raised dev tool floors (ruff 0.16, mypy 2.3, pytest 9, bandit 1.9,
+  pre-commit 4.6). Also bumped the pre-commit hooks and the GitHub Actions
+  (`actions/checkout@v7`, `astral-sh/setup-uv@v10`).
+- CI now runs `pytest`.
+
+### Fixed
+
+- `devops-utils-mcp` crashed at startup with `mcp` 2.x installed. A new
+  regression test builds the server and checks which tools are registered.
+
 ## [0.2.0] - 2026-07-20
 
 ### Added
