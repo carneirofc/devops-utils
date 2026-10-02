@@ -42,6 +42,8 @@ all = ["mcp>=2", "textual", "PySide6", "httpx"]
 [project.scripts]
 devops-utils = "devops_utils.cli.main:main"
 devops-utils-mcp = "devops_utils.mcp.server:main"
+devops-utils-tui = "devops_utils.tui.app:main"
+devops-utils-qt = "devops_utils.ui.app:main"
 
 [dependency-groups]
 dev = [

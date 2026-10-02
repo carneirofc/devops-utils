@@ -49,8 +49,8 @@ uv tool install "devops-utils[all]"   # isolated, always on PATH
 | *(none)* | `pyyaml`, `click` | `devops-utils sanitize`, `devops-utils setup` |
 | `azure` | `httpx` | `devops-utils azdo …`, the `azdo_*` agent callables |
 | `mcp` | `mcp` | the `devops-utils-mcp` server |
-| `tui` | `textual` | the TUI |
-| `qt` | `PySide6` | the desktop UI |
+| `tui` | `textual` | the `devops-utils-tui` TUI |
+| `qt` | `PySide6` | the `devops-utils-qt` desktop UI |
 | `all` | all of the above | every surface |
 
 For working on devops-utils itself:
