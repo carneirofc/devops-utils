@@ -21,6 +21,9 @@ Apply these defaults on every operation unless the user overrides them:
 - **Creating**: parent new items under the parent Epic (or a Feature/Story
   beneath it), set the area path, and apply every default tag —
   `devops-utils azdo create --project {project} --type Task --title "..."{create_flags}`.
+  Features and User Stories are value delivered to the end user: title and
+  describe them by what the user can now do. Purely technical work is a Task
+  under the story it enables.
 - **Querying**: scope searches with the same area path and tags so this repo's
   items surface first —
   `devops-utils azdo list --project {project}{query_flags}`.

@@ -1,6 +1,6 @@
 ---
 name: git-history-workitems
-description: Mine the repository's git history into per-year markdown Feature / User Story files (commits, tags, authors, status) ready to be pushed to Azure DevOps work items. Use when the user asks to reconstruct a backlog, features, or work items from git history.
+description: Mine the repository's git history into per-year markdown Feature / User Story files — each describing value delivered to the end user — with commits, tags, authors, and status, ready to be pushed to Azure DevOps work items. Use when the user asks to reconstruct a backlog, features, or work items from git history.
 ---
 
 # Git history → Features / User Stories
@@ -11,6 +11,13 @@ containing its child **User Stories**. The files carry everything needed to
 later create and update Azure DevOps work items with the
 `azure-devops-work-items` skill (`devops-utils azdo`): titles, descriptions,
 tags, commit hashes, authors, and completion status.
+
+**Features and User Stories are value delivered to the end user.** Every
+Feature is a capability someone using the software gained; every User Story is
+one increment of that value they can see or use. Titles and descriptions say
+what the user can now do and why it matters to them — not which modules,
+refactors, or pipelines the commits touched. Commits are the evidence; the
+value is the content.
 
 This skill only reads git and writes markdown — it performs **no Azure DevOps
 writes**. Pushing the result to Azure DevOps is a separate, explicit follow-up.
@@ -36,7 +43,8 @@ docs/workitems/history/
 ├── index.md                     # one-line-per-feature table across all years
 ├── 2024/
 │   ├── feature-initial-cli.md
-│   └── feature-manifest-sanitizer.md
+│   ├── feature-manifest-sanitizer.md
+│   └── maintenance.md           # internal-only work with no end-user value
 └── 2025/
     └── feature-azure-devops-client.md
 ```
@@ -50,7 +58,7 @@ its parent.
 ```markdown
 ---
 kind: Feature
-title: Azure DevOps REST client
+title: Track Azure DevOps work from the terminal
 slug: azure-devops-client
 year: 2025
 status: implemented          # implemented | in-progress
@@ -63,12 +71,13 @@ assigned_to: jane@contoso.com   # most active author on the feature
 azure_devops_id:                # filled in once the work item exists
 ---
 
-One or two paragraphs describing WHAT capability this feature delivered and
-why, written from the diffs — not a paraphrase of commit subjects.
+One or two paragraphs describing the value this feature delivered to the end
+user: who benefits, what they can now do that they couldn't before, and why it
+matters — written from the diffs, not a paraphrase of commit subjects.
 
 ## User Stories
 
-### Authenticate against cloud and on-prem servers
+### As an on-prem admin, I can connect to my own Azure DevOps Server
 
 - status: implemented
 - tags: [auth, on-prem]
@@ -81,7 +90,8 @@ why, written from the diffs — not a paraphrase of commit subjects.
   - `3f2a91c` feat(azdo): add bearer-token client core
   - `9d41b02` feat(azdo): support PAT basic-auth scheme
 
-Short description of the user-visible increment this story delivered.
+Short description of the value this increment gives the user, with the
+user-observable behaviour that shows it is done (acceptance criteria).
 
 ### <next story…>
 ```
@@ -149,17 +159,24 @@ interleaved with others over weeks. Group by what the diffs say:
   Feature.
 - Conventional-commit scopes (`feat(azdo): …`, `fix(cli): …`) are strong
   grouping hints; verify against the diff when scopes are missing or sloppy.
-- A Feature is a shippable capability (what a changelog "Added" bullet
-  describes). A User Story is one user-visible increment within it — a
-  subcommand, an auth scheme, an output format. Pure chores (CI, formatting,
-  release bumps) that serve no feature go into a single "Repository
-  maintenance" Feature per year rather than polluting real ones.
+- A Feature is **value delivered to the end user** — a capability they can
+  use (what a changelog "Added" bullet describes). A User Story is one
+  increment of that value the user can see — a subcommand, an auth scheme, an
+  output format. Name both from the user's side: *what can they do now?*
+- Technical commits (refactors, tests, CI, dependency bumps) that made a story
+  possible belong to that story's commit list — they are part of delivering
+  its value, but never the subject of its title or description.
+- Pure chores that serve no user-facing value (formatting, release bumps,
+  unrelated CI tweaks) are **not** a Feature or Story. Put them in the year's
+  `maintenance.md` as a flat `kind: Task` list (same commit/author fields, no
+  stories) so every commit is still accounted for.
 - `CHANGELOG.md`, release tags (`git tag --sort=creatordate`), and PR/issue
   references in messages are corroborating evidence for where a capability
   begins and ends.
 
 Aim for coarse Features (a handful per year, not one per commit) with 2–6
-stories each. Every commit should land in exactly one story; list a genuinely
+stories each. Every commit should land in exactly one story or in
+`maintenance.md`; list a genuinely
 cross-cutting commit under the story it advanced most and mention the overlap
 in the description.
 
@@ -208,6 +225,9 @@ commands:
   order, with each story's `parent: ref:<feature-slug>` — **Feature is always
   the parent of its User Stories**. Ask the user which Epic (if any) the
   Features hang under.
+- `maintenance.md` entries are internal work, not user value: ask the user
+  whether to push them as `Task` items (parented to the story they relate to,
+  if any) or keep them on disk only.
 - Map fields 1:1: `title`, description body, `tags`, `assigned_to`, and any
   `fields:` map verbatim; `status: implemented` → the project's done state
   (`Closed`/`Done` — template-specific), `in-progress` → `Active`.

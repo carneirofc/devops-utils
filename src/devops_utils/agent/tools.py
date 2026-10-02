@@ -193,8 +193,11 @@ def azdo_create_work_item(
 
     Args:
         project: Team project name or id.
-        work_item_type: e.g. ``Bug``, ``Task``, ``User Story``.
-        title: Work-item title.
+        work_item_type: e.g. ``Bug``, ``Task``, ``User Story``. Features and
+            User Stories are value delivered to the end user; purely
+            technical work is a ``Task``.
+        title: Work-item title. For a Feature/User Story, phrase it as what
+            the end user can now do.
         description: Optional HTML description.
         tags: Optional list of tags.
         area_path / iteration_path: Optional classification nodes.
