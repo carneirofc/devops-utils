@@ -86,8 +86,11 @@ The backlog is structured `Epic → Feature → User Story → Task/Bug` (Scrum
   `azdo_list_work_items`, then expand the interesting ids via relations.
 - Roll status up — a Feature is as done as its stories, an Epic as its features
   — and name the parent when reporting a story.
+- Features and User Stories are value delivered to the end user — report them
+  in those terms (what the user can do), not as implementation detail.
 - Report hierarchy breaks (orphan Feature/Story, a story parented straight to
-  an Epic); fixing them is a write, handled by `azure-devops-work-items`.
+  an Epic, a Feature/Story holding purely technical work that belongs in a
+  Task); fixing them is a write, handled by `azure-devops-work-items`.
 
 ## Filter by team (area) and sprint (iteration)
 

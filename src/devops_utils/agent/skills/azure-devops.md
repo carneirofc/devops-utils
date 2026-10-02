@@ -267,10 +267,27 @@ each level is parented to the one above:
 
 ```
 Epic            business outcome / initiative, spans releases
-└── Feature     shippable capability delivering part of the Epic
-    └── User Story   user-visible increment, estimable, fits in a sprint
+└── Feature     value delivered to the end user — a capability they can use
+    └── User Story   one increment of end-user value, estimable, fits in a sprint
         └── Task / Bug   implementation steps and defects (optional leaf)
 ```
+
+**Features and User Stories are value delivered to the end user.** They
+describe what someone using the product can now do and why it matters to
+them — never how the team built it. Write them that way:
+
+- **Title from the user's side.** A Feature names the capability the user gets
+  ("Guest checkout"), not the component built ("Payment service refactor"). A
+  User Story follows *As a <user>, I can <action> so that <benefit>* — or at
+  least names the user-visible outcome.
+- **Description = the value.** Who benefits, what they can do now that they
+  couldn't before, and why it matters. Put acceptance criteria in
+  user-observable terms (`Microsoft.VSTS.Common.AcceptanceCriteria`).
+- **Technical work is a Task, not a story.** Refactors, CI, dependency bumps,
+  test scaffolding, and infrastructure are Tasks under the User Story whose
+  value they enable. If a request describes only technical work, ask which
+  user-facing outcome it serves and parent it there; don't invent a Feature or
+  Story to hold it.
 
 Rules:
 
