@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-02
+
 ### Added
 
+- **`devops-utils-tui` and `devops-utils-qt` console scripts.** The Textual
+  TUI and the Qt desktop UI now launch directly once the `tui` / `qt` extra is
+  installed, alongside `devops-utils` and `devops-utils-mcp`.
 - **User guide.** Five task-oriented pages under `docs/guide/` — install and
   credential setup, an Azure DevOps CLI cookbook (finding work, changing work,
   diagnosing failed pipelines, repo search, `jq` recipes), bulk plan files with
@@ -27,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Features and User Stories are end-user value.** The work-item skills,
+  the `azdo-workitem-analyst` subagent, the tracker template, and the
+  `azdo_create_work_item` docstring now require Features and Stories to be
+  titled and described by what the end user can do; purely technical work is a
+  Task under the story it enables. `git-history-workitems` writes no-value
+  chores to a per-year `maintenance.md` (Tasks) instead of a "Repository
+  maintenance" Feature.
 - **Dependencies upgraded; MCP SDK v2.** All locked dependencies were
   upgraded. The `mcp` extra now requires `mcp>=2`, and the server uses
   `MCPServer`/`Context` from `mcp.server.mcpserver` instead of the removed
