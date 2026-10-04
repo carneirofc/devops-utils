@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-04
+
 ### Added
 
+- **`devops-utils-tui` and `devops-utils-qt` console scripts.** The terminal
+  and Qt front ends now install as their own entry points.
 - **User guide.** Five task-oriented pages under `docs/guide/` — install and
   credential setup, an Azure DevOps CLI cookbook (finding work, changing work,
   diagnosing failed pipelines, repo search, `jq` recipes), bulk plan files with
