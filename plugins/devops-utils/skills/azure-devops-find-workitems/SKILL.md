@@ -91,6 +91,12 @@ children of the Epic (Features), then `--parent` on each Feature id (Stories),
 then on each Story (Tasks/Bugs). Alternatively `azdo get <id> --relations`
 returns `child` relations for a single item.
 
+When summarising the tree, describe each Feature and User Story by the value
+it delivers to the end user (what they can now do), not by what was built.
+Point out Features/Stories that read as purely technical work — they belong as
+Tasks under the story they enable — but leave fixing them to the
+`azure-devops-work-items` skill.
+
 ## When a query comes back empty
 
 - Drop filters one at a time (tags first, then area path) to learn which one

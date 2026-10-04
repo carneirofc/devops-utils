@@ -27,10 +27,10 @@ defaults:
 items:
   - ref: feat                    # a local handle other items can point at
     type: Feature
-    title: Payment retries
+    title: Payments succeed even when the acquirer is flaky
     tags: [payments, backend]
   - type: User Story
-    title: Retry failed captures
+    title: As a shopper my payment goes through after a transient error
     parent: ref:feat             # parented under the Feature created above
     assigned_to: dev@example.com
 ```
@@ -47,6 +47,10 @@ visible without blocking the run.
 
 ## Worked example: a feature with its stories
 
+Features and User Stories describe value delivered to the end user — what
+they can now do and why it matters. The technical work that delivers it
+(backoff, alerting) goes in Tasks under the story.
+
 ```yaml
 project: MyProject
 defaults:
@@ -56,19 +60,24 @@ defaults:
 items:
   - ref: feat
     type: Feature
-    title: Resilient payment capture
-    description: "<p>Captures must survive a flaky acquirer.</p>"
+    title: Payments succeed even when the acquirer is flaky
+    description: >-
+      <p>Shoppers no longer see failed orders when the payment acquirer
+      has a brief outage, so fewer checkouts are abandoned.</p>
     fields:
       Microsoft.VSTS.Scheduling.StartDate: 2026-08-03
       Microsoft.VSTS.Scheduling.TargetDate: 2026-09-30
 
   - ref: retry
     type: User Story
-    title: Retry failed captures with backoff
+    title: As a shopper my payment goes through after a transient error
     parent: ref:feat
     assigned_to: dev@example.com
     fields:
       Microsoft.VSTS.Scheduling.StoryPoints: 5
+      Microsoft.VSTS.Common.AcceptanceCriteria: >-
+        <p>A payment hit by a transient acquirer error completes without
+        the shopper retrying.</p>
 
   - type: Task
     title: Add exponential backoff to the capture client

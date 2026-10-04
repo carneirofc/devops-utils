@@ -46,10 +46,13 @@ candidates and let the user pick one (or none):
 devops-utils azdo list --project <PROJECT> --type Epic --top 25
 ```
 
-If no Epic fits, offer to create one (confirmation-gated):
+If no Epic fits, offer to create one (confirmation-gated). An Epic is the
+outcome the repo's work delivers to its users, not a bucket — ask the user what
+that outcome is and title the Epic after it:
 
 ```bash
-devops-utils azdo create --project <PROJECT> --type Epic --title "<repo> backlog"
+devops-utils azdo create --project <PROJECT> --type Epic \
+  --title "<outcome, e.g. Teams track Azure DevOps work from the terminal>"
 ```
 
 Record the chosen Epic's **id**.

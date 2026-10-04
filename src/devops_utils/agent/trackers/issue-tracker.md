@@ -59,7 +59,11 @@ Output is UTF-8 regardless of the calling shell's code page — no `chcp`,
 - **Create an issue**: `devops-utils azdo create --project {project} --type Task --title "..." --description "<p>...</p>"`.
   The description is **HTML**, not markdown. Pick `--type` from the types the
   project actually uses (`Bug`, `Task`, `User Story`, `Feature`, …); if a type is
-  rejected, check what existing items use via `azdo list`.
+  rejected, check what existing items use via `azdo list`. When the issue
+  delivers value to the end user, make it a `User Story` under its Feature
+  (`--parent <feature-id>`), titled *As a <user>, I can <action> so that
+  <benefit>*, with user-observable acceptance criteria. Use `Task`/`Bug` only
+  for technical work or defects, parented to the story they serve.
 - **Read an issue**: `devops-utils azdo get <id>` returns a trimmed summary
   (id/type/title/state/assignee/tags/area/iteration). Add `--full` for the
   description, scheduling dates, and any `Custom.*` field — they come back as a
@@ -104,6 +108,8 @@ Output is UTF-8 regardless of the calling shell's code page — no `chcp`,
 ## When a skill says "publish to the issue tracker"
 
 Create a work item: `devops-utils azdo create --project {project} --type Task --title "..." --description "<p>...</p>"`.
+A PRD or user-facing request becomes a Feature / User Story describing the
+value delivered to the end user; implementation slices become Tasks under it.
 
 ## When a skill says "fetch the relevant ticket"
 

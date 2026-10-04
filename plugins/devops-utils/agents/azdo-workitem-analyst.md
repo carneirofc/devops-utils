@@ -56,10 +56,11 @@ The backlog is structured `Epic → Feature → User Story → Task/Bug` (Scrum 
   features'. Give the parent's id/title as context whenever you report a story.
 - Features and User Stories are **value delivered to the end user**; when
   summarising them, say what the user gets, not what was built.
-- **Flag violations**: a Feature or User Story with no parent, a level
-  skipped (story parented straight to an Epic), or a Feature/Story that
-  describes purely technical work with no end-user value (it should be a Task). Report them — never fix them;
-  writes go back to the main assistant.
+- **Flag violations**: a Feature or User Story with no parent; a level
+  skipped (story parented straight to an Epic); a Feature/Story that describes
+  purely technical work with no end-user value (it should be a Task); or one
+  with no stated user benefit or no user-observable acceptance criteria.
+  Report them — never fix them; writes go back to the main assistant.
 
 ## Reporting
 

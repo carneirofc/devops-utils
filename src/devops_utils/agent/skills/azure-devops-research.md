@@ -90,7 +90,9 @@ The backlog is structured `Epic → Feature → User Story → Task/Bug` (Scrum
   in those terms (what the user can do), not as implementation detail.
 - Report hierarchy breaks (orphan Feature/Story, a story parented straight to
   an Epic, a Feature/Story holding purely technical work that belongs in a
-  Task); fixing them is a write, handled by `azure-devops-work-items`.
+  Task, a Feature/Story with no stated user benefit or no user-observable
+  acceptance criteria); fixing them is a write, handled by
+  `azure-devops-work-items`.
 
 ## Filter by team (area) and sprint (iteration)
 
