@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pytest 9, bandit 1.9, pre-commit 4.6), and the pre-commit hooks and GitHub
   Actions were bumped (`checkout@v7`, `setup-uv@v10.2.0`,
   `upload-pages-artifact@v5` with `include-hidden-files`, `deploy-pages@v5`).
+  A follow-up refresh moved the lock to mcp 2.3, mypy 2.4, ruff 0.16.10 and
+  current transitive releases, with the ruff and mypy pre-commit hooks to
+  match.
 - **CI runs `pytest`.** The lint workflow now runs the test suite.
 - **README slimmed to a front door.** Install, a short tour of representative
   commands, and a table linking each published guide; the long-form Azure
