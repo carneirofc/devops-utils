@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Features and User Stories framed as user value everywhere.** The
+  work-items skill adds a value check (who benefits, the *so that*,
+  user-observable acceptance criteria) before any Feature/Story is proposed
+  and treats Epics as outcomes; read-side skills and the work-item analyst
+  summarise by user value and flag stories without a benefit or acceptance
+  criteria; the tracker template routes user-facing issues to User Stories;
+  `setup-issue-tracker` no longer suggests a "<repo> backlog" Epic; and the
+  bulk-plan examples and tool docstrings model value-first titles.
 - **Dependencies upgraded; MCP SDK v2.** All locked dependencies were
   upgraded. The `mcp` extra now requires `mcp>=2`, and the server uses
   `MCPServer`/`Context` from `mcp.server.mcpserver` instead of the removed

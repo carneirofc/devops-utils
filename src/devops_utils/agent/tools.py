@@ -279,8 +279,10 @@ def azdo_update_work_item(
         state: New state (process-template-specific, e.g. ``Closed``, ``Done``,
             ``Resolved``, ``Active``).
         assigned_to: New assignee (email or display name).
-        title: New title.
-        description: New description (HTML).
+        title: New title. For a Feature/User Story, phrase it as what the
+            end user can now do.
+        description: New description (HTML). For a Feature/User Story,
+            describe the value delivered to the end user.
         area_path: New Azure Boards area path (e.g. ``Project\\Team``).
         iteration_path: New Azure Boards iteration/sprint path (e.g.
             ``Project\\Sprint 3``).
@@ -653,6 +655,9 @@ def azdo_apply_plan(
     free-form per-item ``fields`` map passes **any** field reference name
     through (``Custom.*`` included), so the plan is not limited to the named
     keys. See :mod:`devops_utils.core.azure_devops.bulk` for the full shape.
+
+    Feature and User Story items describe value delivered to the end user;
+    technical work goes in ``Task`` items parented to the story it enables.
 
     Args:
         plan: The plan mapping, or its YAML/JSON source text.

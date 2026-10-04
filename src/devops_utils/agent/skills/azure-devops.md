@@ -288,6 +288,20 @@ them — never how the team built it. Write them that way:
   value they enable. If a request describes only technical work, ask which
   user-facing outcome it serves and parent it there; don't invent a Feature or
   Story to hold it.
+- **The Epic is an outcome too** — the business or user result the Features
+  add up to ("Customers can check out without help"), not a component or a
+  "<repo> backlog" bucket.
+
+**Value check — before proposing any Feature or User Story, answer:**
+
+1. Who is the user, and what can they do afterwards that they couldn't before?
+2. Is the benefit stated (the *so that …*)?
+3. Are the acceptance criteria observable by that user — not "code merged",
+   "tests pass", or "endpoint added"?
+
+If any answer is "nobody" or "internal only", it is a Task under the story it
+enables; ask the user which outcome it serves instead of creating the
+Feature/Story.
 
 Rules:
 
@@ -787,6 +801,7 @@ items:
   - ref: feat-checkout        # local handle later items can reference
     type: Feature
     title: Guest checkout
+    description: "<p>Shoppers can buy without creating an account.</p>"
     state: Closed             # applied via follow-up patch after create
     assigned_to: dev@contoso.com
     tags: [checkout]
@@ -798,8 +813,11 @@ items:
       - {kind: hyperlink, value: "https://status.contoso.com/42"}
     comments: [Imported from git history.]
   - type: User Story
-    title: Pay without an account
+    title: As a guest I can pay without an account so I finish faster
     parent: ref:feat-checkout # or a real work-item id
+    fields:
+      Microsoft.VSTS.Common.AcceptanceCriteria: >-
+        <p>A guest completes payment with only an email address.</p>
   - id: 1421                  # has an id → update instead of create
     state: Active
     fields: {Custom.RiskLevel: Low}
