@@ -7,6 +7,7 @@ from devops_utils.cli.commands.azdo import azdo
 from devops_utils.cli.commands.sanitize import sanitize
 from devops_utils.cli.commands.setup import setup
 from devops_utils.core.encoding import configure_stdio
+from devops_utils.core.envfile import load_env_files
 
 
 @click.group()
@@ -18,6 +19,8 @@ def cli() -> None:
     # `main` already did this for the console script; repeating it here (the
     # call is idempotent) covers `python -m` and embedding `cli` directly.
     configure_stdio()
+    # Same for the env file: setdefault-only, so a second call is a no-op.
+    load_env_files()
 
 
 cli.add_command(sanitize)
@@ -34,6 +37,7 @@ def main() -> None:
     default from CPython.
     """
     configure_stdio()
+    load_env_files()
     cli()
 
 

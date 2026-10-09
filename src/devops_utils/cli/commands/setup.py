@@ -18,6 +18,7 @@ tty, or ``DEVOPS_UTILS_SKIP_CONFIRMATION``), in which case they are kept.
 """
 
 import difflib
+import shutil
 from pathlib import Path
 
 import click
@@ -260,6 +261,29 @@ def mcp_cmd(
         click.echo(f"wrote  {path} (mcpServers.{install.MCP_SERVER_NAME})")
     else:
         click.echo(f"skip   {path} ({install.MCP_SERVER_NAME} left as-is)")
+    _warn_if_launcher_missing(no_uvx)
+
+
+def _warn_if_launcher_missing(no_uvx: bool) -> None:
+    """Warn on stderr when the registered launcher is not on ``PATH``.
+
+    Claude Code / Desktop start the server by bare command name; on Windows a
+    missing ``uvx.exe`` only shows up later as a silent "failed to connect".
+    """
+    command = install.MCP_COMMAND if no_uvx else "uvx"
+    if shutil.which(command) is not None:
+        return
+    hint = (
+        "pip install 'devops-utils[mcp]' (or pipx/uv tool install)"
+        if no_uvx
+        else "install uv: winget install astral-sh.uv (Windows) or "
+        "https://docs.astral.sh/uv/getting-started/installation/"
+    )
+    click.echo(
+        f"warning: '{command}' is not on PATH, so the MCP server cannot start; "
+        f"{hint}. Restart the agent afterwards so it sees the new PATH.",
+        err=True,
+    )
 
 
 @setup.command("env")
@@ -285,6 +309,12 @@ def env_cmd(
         click.echo(f"wrote  {result}")
     else:
         click.echo(f"skip   {path} (kept existing)")
+    live = path.with_name(path.name[: -len(".example")])
+    click.echo(
+        f"Fill it in and save it as {live} — the CLI and MCP server load it "
+        "automatically.",
+        err=True,
+    )
 
 
 @setup.command("plugin")

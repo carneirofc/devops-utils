@@ -259,6 +259,36 @@ devops-utils azdo list --project MyProject --iteration-path 'MyProject\Sprint 3'
   | jq -r '.[] | [.id, .type, .state, .title] | @csv'
 ```
 
+### Without jq (PowerShell, cmd)
+
+`-o id` prints bare ids and `--select PATH` keeps only a `/`-separated path
+(dotted field names need no quoting), so the common recipes need no `jq`:
+
+```powershell
+# Ids of my active bugs
+devops-utils azdo list --project MyProject --mine --type Bug --state Active -o id
+
+# Close everything tagged 'obsolete', unattended
+devops-utils azdo list --project MyProject --tag obsolete -o id |
+  ForEach-Object { devops-utils azdo update $_ --state Closed --yes }
+
+# Capture the new id when creating
+$new = devops-utils azdo create --project MyProject --type Task `
+         --title "Fix flaky test" --yes -o id
+
+# One field, unquoted
+devops-utils azdo get 42 --full --select fields/Microsoft.VSTS.Scheduling.TargetDate -o raw
+
+# Anything richer: parse the JSON
+devops-utils azdo list --project MyProject --iteration-path 'MyProject\Sprint 3' |
+  ConvertFrom-Json | Export-Csv sprint.csv -NoTypeInformation
+```
+
+In Windows PowerShell 5.1, run
+`[Console]::OutputEncoding = [Text.UTF8Encoding]::new()` before piping into
+`ConvertFrom-Json`, or non-ASCII titles arrive garbled (PowerShell 7 needs
+nothing).
+
 For a fully unattended run (CI), either pass `--yes` per command or export
 `DEVOPS_UTILS_SKIP_CONFIRMATION=1` once. Prefer `--yes`: it keeps the blast
 radius to the command you meant.

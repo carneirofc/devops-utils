@@ -12,9 +12,18 @@ work items — hand any write action back to the main assistant.
 ## Configuration
 
 The `azdo_*` tools read `AZURE_DEVOPS_ORG_URL` and `AZURE_DEVOPS_TOKEN` from the
-environment (plus optional `AZURE_DEVOPS_AUTH_SCHEME`, `AZURE_DEVOPS_API_VERSION`).
-Works against both cloud (`dev.azure.com`) and on-prem Server. If a tool fails
-with a missing-env-var error, report that instead of retrying.
+environment (plus optional `AZURE_DEVOPS_AUTH_SCHEME`, `AZURE_DEVOPS_API_VERSION`),
+or from the first env file found: `$DEVOPS_UTILS_ENV_FILE`,
+`./.env.devops-utils`, `~/.devops-utils.env`. Works against both cloud and
+on-prem Server, on Windows, macOS, and Linux.
+
+Stop and report — don't retry, guess, or fall back to other tools — when:
+
+- the `azdo_*` tools are not available at all: the MCP server is not
+  registered; tell the user to run `devops-utils setup mcp` and restart the
+  session;
+- a tool fails with a missing-env-var error: name the missing variable and the
+  env-file locations above; never ask for the token in chat.
 
 ## How to query
 
@@ -70,3 +79,13 @@ The backlog is structured `Epic → Feature → User Story → Task/Bug` (Scrum 
 - Summarize: counts by state/type/assignee first, then the notable items with
   id, title, and state. Include work-item ids so the user can act on them.
 - State clearly which filters produced the result set.
+
+Shape the reply like this:
+
+```
+Filters: <project, states, types, tags, assignee, parent, area>
+Totals: <n> items — <by state> · <by type>
+Notable:
+- #<id> <type> "<title>" — <state>, <assigned_to> (<url>)
+Violations: <orphans / skipped levels / non-value stories, or "none">
+```

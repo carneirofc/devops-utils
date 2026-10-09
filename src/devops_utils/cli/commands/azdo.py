@@ -5,7 +5,9 @@ Config comes from the environment (no machine credentials are read):
 ``AZURE_DEVOPS_AUTH_SCHEME`` (``bearer``/``pat``) and ``AZURE_DEVOPS_API_VERSION``.
 """
 
+import functools
 import json
+from collections.abc import Callable
 from typing import Any
 
 import click
@@ -13,6 +15,7 @@ import click
 from devops_utils.agent import tools
 from devops_utils.core.azure_devops.workitems import LINK_KINDS
 from devops_utils.core.confirmation import skip_confirmation
+from devops_utils.core.select import OUTPUT_MODES, render, select
 
 _YES_OPTION = click.option(
     "--yes", "-y", is_flag=True, help="Skip confirmation prompt."
@@ -22,8 +25,55 @@ _DRY_RUN_OPTION = click.option(
 )
 
 
+_OUTPUT_META_KEY = "devops_utils.azdo.output"
+
+
+def _output_options(fn: Callable[..., None]) -> Callable[..., None]:
+    """Add ``--output``/``--select`` and stash them for :func:`_echo`.
+
+    They replace ``… | jq -r .id`` so the same command line works in bash,
+    PowerShell and cmd (``$epic = devops-utils azdo create … -o id``). Values go
+    on the Click context rather than into every command's signature.
+    """
+
+    @click.option(
+        "--output",
+        "-o",
+        "output_mode",
+        type=click.Choice(OUTPUT_MODES),
+        default="json",
+        show_default=True,
+        help="json: pretty JSON; id: bare id(s), one per line; "
+        "raw: --select values unquoted, one per line.",
+    )
+    @click.option(
+        "--select",
+        "select_paths",
+        multiple=True,
+        metavar="PATH",
+        help="Keep only this /-separated path (repeatable), e.g. "
+        "--select fields/Microsoft.VSTS.Scheduling.StartDate. Applied per item "
+        "on lists.",
+    )
+    @functools.wraps(fn)
+    def wrapper(
+        *args: Any, output_mode: str, select_paths: tuple[str, ...], **kwargs: Any
+    ) -> None:
+        click.get_current_context().meta[_OUTPUT_META_KEY] = (
+            output_mode,
+            select_paths,
+        )
+        fn(*args, **kwargs)
+
+    return wrapper
+
+
 def _echo(result: Any) -> None:
-    click.echo(json.dumps(result, indent=2, ensure_ascii=False))
+    ctx = click.get_current_context(silent=True)
+    mode, paths = ("json", ())
+    if ctx is not None:
+        mode, paths = ctx.meta.get(_OUTPUT_META_KEY, (mode, paths))
+    click.echo(render(select(result, paths), mode))
 
 
 def _confirm_or_dry_run(preview: dict[str, Any], *, yes: bool, dry_run: bool) -> bool:
@@ -79,6 +129,7 @@ def _parse_fields(pairs: tuple[str, ...]) -> dict[str, str] | None:
 
 
 @azdo.command("repos")
+@_output_options
 @click.option("--project", default=None, help="Scope to a single team project.")
 @click.option("--name", default=None, help="Filter repos by name substring.")
 def repos(project: str | None, name: str | None) -> None:
@@ -87,6 +138,7 @@ def repos(project: str | None, name: str | None) -> None:
 
 
 @azdo.command("list")
+@_output_options
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option("--state", "states", multiple=True, help="Filter by state (repeatable).")
 @click.option(
@@ -143,6 +195,7 @@ def list_(
 
 
 @azdo.command("search")
+@_output_options
 @click.option("--project", required=True, help="Team project name or id.")
 @click.argument("text")
 @click.option("--state", "states", multiple=True, help="Filter by state (repeatable).")
@@ -202,6 +255,7 @@ def search(
 
 
 @azdo.command("get")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.option(
     "--relations",
@@ -220,6 +274,7 @@ def get(work_item_id: int, relations: bool, full: bool) -> None:
 
 
 @azdo.command("create")
+@_output_options
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option(
     "--type", "work_item_type", required=True, help="Work-item type, e.g. Bug/Task."
@@ -287,6 +342,7 @@ def create(
 
 
 @azdo.command("comment")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.argument("text")
 @_YES_OPTION
@@ -303,6 +359,7 @@ def comment(work_item_id: int, text: str, yes: bool, dry_run: bool) -> None:
 
 
 @azdo.command("tag")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.argument("tags", nargs=-1, required=True)
 @click.option(
@@ -333,6 +390,7 @@ def tag(
 
 
 @azdo.command("update")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.option("--state", default=None, help="New state, e.g. Active/Resolved/Closed.")
 @click.option(
@@ -403,6 +461,7 @@ def update(
 
 
 @azdo.command("link")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.option(
     "--kind",
@@ -455,6 +514,7 @@ def link(
 
 
 @azdo.command("unlink")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.option(
     "--kind",
@@ -504,6 +564,7 @@ def unlink(
 
 
 @azdo.command("builds")
+@_output_options
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option(
     "--definition",
@@ -548,6 +609,7 @@ def builds(
 
 
 @azdo.command("build")
+@_output_options
 @click.argument("build_id", type=int)
 @click.option("--project", required=True, help="Team project name or id.")
 def build(build_id: int, project: str) -> None:
@@ -556,6 +618,7 @@ def build(build_id: int, project: str) -> None:
 
 
 @azdo.command("definitions")
+@_output_options
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option("--name", default=None, help="Definition name filter; supports *.")
 @click.option("--top", default=25, show_default=True, help="Max definitions.")
@@ -565,6 +628,7 @@ def definitions(project: str, name: str | None, top: int) -> None:
 
 
 @azdo.command("timeline")
+@_output_options
 @click.argument("build_id", type=int)
 @click.option("--project", required=True, help="Team project name or id.")
 def timeline(build_id: int, project: str) -> None:
@@ -573,6 +637,7 @@ def timeline(build_id: int, project: str) -> None:
 
 
 @azdo.command("logs")
+@_output_options
 @click.argument("build_id", type=int)
 @click.option("--project", required=True, help="Team project name or id.")
 def logs(build_id: int, project: str) -> None:
@@ -602,6 +667,7 @@ def log(
 
 
 @azdo.command("files")
+@_output_options
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option("--repo", required=True, help="Repository name or id.")
 @click.option(
@@ -622,6 +688,7 @@ def files(project: str, repo: str, pattern: str, branch: str | None, top: int) -
 
 
 @azdo.command("code-search")
+@_output_options
 @click.argument("text")
 @click.option("--project", required=True, help="Team project name or id.")
 @click.option("--repo", default=None, help="Scope to a repository.")
@@ -635,6 +702,7 @@ def code_search_cmd(
 
 
 @azdo.command("build-tag")
+@_output_options
 @click.argument("build_id", type=int)
 @click.argument("tags", nargs=-1, required=True)
 @click.option("--project", required=True, help="Team project name or id.")
@@ -659,6 +727,7 @@ def build_tag(
 
 
 @azdo.command("pr-comment")
+@_output_options
 @click.argument("pull_request_id", type=int)
 @click.argument("text")
 @click.option("--project", required=True, help="Team project name or id.")
@@ -703,6 +772,7 @@ def pr_comment(
 
 
 @azdo.command("attach")
+@_output_options
 @click.argument("work_item_id", type=int)
 @click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
 @click.option("--comment", default=None, help="Optional note on the attachment.")

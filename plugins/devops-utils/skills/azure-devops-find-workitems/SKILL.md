@@ -1,6 +1,6 @@
 ---
 name: azure-devops-find-workitems
-description: Query Azure DevOps work items by type, tags, parent, and area path — recipes for finding pending issues, walking an Epic's backlog, and scoping searches with a repo's tracker defaults.
+description: Recipes for locating Azure DevOps work items by type, state, tags, direct parent, and area path, scoped by a repo's tracker defaults in docs/agents/issue-tracker.md. Use when a task needs to find work items — pending issues for this repo, an Epic's backlog, a triage queue by tag, or a text search — before reading or changing them.
 ---
 
 # Find Azure DevOps work items

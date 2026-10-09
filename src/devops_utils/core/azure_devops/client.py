@@ -103,7 +103,9 @@ class AzureDevOpsClient:
             raise ValueError(
                 "Missing required environment variable(s): "
                 + ", ".join(missing)
-                + ". Set them before using the Azure DevOps tools."
+                + ". Set them in the environment or in an env file "
+                "(~/.devops-utils.env, ./.env.devops-utils, or the path in "
+                "DEVOPS_UTILS_ENV_FILE) before using the Azure DevOps tools."
             )
         return cls(
             org_url=org_url,

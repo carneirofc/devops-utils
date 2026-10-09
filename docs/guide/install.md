@@ -81,9 +81,45 @@ export AZURE_DEVOPS_AUTH_SCHEME="pat"
 export AZURE_DEVOPS_API_VERSION="6.0"
 ```
 
-`devops-utils setup env` writes a commented scaffold you can fill in
+### Env file (recommended on Windows)
+
+Instead of exporting variables, put them in an env file. The CLI and the MCP
+server load the **first existing** one of:
+
+1. the path in `DEVOPS_UTILS_ENV_FILE`
+2. `./.env.devops-utils` — project scope; add it to `.gitignore`
+3. `~/.devops-utils.env` — user scope (`%USERPROFILE%\.devops-utils.env` on
+   Windows)
+
+```text
+AZURE_DEVOPS_ORG_URL=https://dev.azure.com/your-org
+AZURE_DEVOPS_TOKEN=<bearer-token-or-pat>
+AZURE_DEVOPS_AUTH_SCHEME=pat
+```
+
+Real environment variables always win, files are never merged, and only
+`AZURE_DEVOPS_*` keys are read. An org URL from a file is ignored unless the
+token in effect comes from the same file, so a cloned repository's
+`.env.devops-utils` can't redirect your token to another server.
+
+`devops-utils setup env` writes a commented scaffold to copy
 (`~/.devops-utils.env.example`, or `.env.devops-utils.example` with
-`--project`).
+`--project`); save the filled-in copy without the `.example` suffix.
+
+### Windows
+
+The env file is the simplest route: Claude Desktop and Claude Code start the
+MCP server without your PowerShell session's `$env:` variables, and `setx`
+only reaches processes started after it. For a one-off shell session:
+
+```powershell
+$env:AZURE_DEVOPS_ORG_URL = 'https://dev.azure.com/your-org'
+$env:AZURE_DEVOPS_TOKEN   = '<bearer-token-or-pat>'
+```
+
+`uvx` ships as a real `.exe` with uv (`winget install astral-sh.uv`), so the MCP
+entry `setup mcp` writes needs no `cmd /c` wrapper; `setup mcp` warns when the
+launcher isn't on `PATH`.
 
 A fifth variable, `DEVOPS_UTILS_SKIP_CONFIRMATION`, turns off the
 human-in-the-loop prompt that guards every write — see

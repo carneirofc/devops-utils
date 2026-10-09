@@ -1,6 +1,6 @@
 ---
 name: sanitize-manifest
-description: Mask secret values in Kubernetes YAML manifests before sharing or committing.
+description: Masks the values of Kubernetes Secret data/stringData in YAML manifests via devops-utils sanitize (CLI, MCP, or Python). Use before sharing, pasting into chat, attaching to a work item, or committing Kubernetes YAML that may contain Secrets.
 ---
 
 # Sanitize Kubernetes manifest

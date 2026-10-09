@@ -4,7 +4,8 @@ Framework-agnostic helpers used by the ``devops-utils setup`` CLI. Kept out of
 the Click layer so the copy/merge logic stays importable and testable on its own
 (mirrors how :mod:`devops_utils.agent.tools` stays free of any framework import).
 
-The bundled skill markdown lives at ``devops_utils/agent/skills/*.md`` and is
+The bundled skill markdown lives at ``devops_utils/agent/skills/`` — either a
+flat ``*.md`` or a ``<dir>/SKILL.md`` with reference files beside it — and is
 read through :mod:`importlib.resources`, so it resolves the same way from a
 source checkout and from an installed wheel.
 """
@@ -87,22 +88,64 @@ def _skill_name(text: str, fallback: str) -> str:
     return fallback
 
 
-def iter_bundled_skills() -> list[tuple[str, str, str]]:
-    """List the skills bundled with the package.
+@dataclass(frozen=True)
+class BundledSkill:
+    """One skill bundled with the package.
 
-    Returns:
-        A list of ``(skill_name, filename, text)`` tuples, sorted by filename.
-        ``skill_name`` comes from the frontmatter ``name:`` (falling back to the
-        file stem); ``filename`` is the original ``*.md`` file name.
+    Attributes:
+        name: Frontmatter ``name:`` (falls back to the file/dir stem).
+        source: Bundled entry name — ``foo.md`` for a single-file skill, ``foo``
+            for a directory skill.
+        files: ``{relative_path: text}``. A single-file skill has one entry,
+            ``SKILL.md``; a directory skill carries ``SKILL.md`` plus its
+            reference files (e.g. ``reference/operations.md``), relative paths
+            always ``/``-separated.
     """
-    skills: list[tuple[str, str, str]] = []
+
+    name: str
+    source: str
+    files: dict[str, str]
+
+    @property
+    def text(self) -> str:
+        """The ``SKILL.md`` body (the part loaded when the skill triggers)."""
+        return self.files["SKILL.md"]
+
+
+def _read_skill_dir(entry, prefix: str = "") -> dict[str, str]:
+    """Collect every ``.md`` file under a skill directory, recursively."""
+    found: dict[str, str] = {}
+    for child in entry.iterdir():
+        rel = f"{prefix}{child.name}"
+        if child.is_dir():
+            if child.name != "__pycache__":
+                found.update(_read_skill_dir(child, f"{rel}/"))
+        elif child.name.endswith(".md"):
+            found[rel] = child.read_text(encoding="utf-8")
+    return found
+
+
+def iter_bundled_skills() -> list[BundledSkill]:
+    """List the skills bundled with the package, sorted by source name.
+
+    A skill is either a flat ``<stem>.md`` or a ``<stem>/`` directory holding
+    ``SKILL.md`` plus reference files it links to — the progressive-disclosure
+    shape for skills too long to load in one go.
+    """
+    skills: list[BundledSkill] = []
     for entry in _skills_resource().iterdir():
-        if not entry.name.endswith(".md"):
+        if entry.is_dir():
+            files_ = _read_skill_dir(entry)
+            if "SKILL.md" not in files_:
+                continue
+            name = _skill_name(files_["SKILL.md"], entry.name)
+        elif entry.name.endswith(".md"):
+            files_ = {"SKILL.md": entry.read_text(encoding="utf-8")}
+            name = _skill_name(files_["SKILL.md"], entry.name[: -len(".md")])
+        else:
             continue
-        text = entry.read_text(encoding="utf-8")
-        stem = entry.name[: -len(".md")]
-        skills.append((_skill_name(text, stem), entry.name, text))
-    return sorted(skills, key=lambda s: s[1])
+        skills.append(BundledSkill(name, entry.name, files_))
+    return sorted(skills, key=lambda s: s.source)
 
 
 def _write(
@@ -139,7 +182,9 @@ def install_skills(
     Args:
         dest: Base directory to install into.
         layout: ``"claude"`` writes ``dest/skills/<name>/SKILL.md`` (Claude Code
-            discovery layout); ``"flat"`` writes ``dest/<filename>``.
+            discovery layout) plus any reference files beside it; ``"flat"``
+            writes a single-file skill as ``dest/<filename>`` and a directory
+            skill as ``dest/<dir>/...``.
         force: Overwrite existing files instead of skipping them.
         confirm: Asked per existing file when ``force`` is not set; ``None``
             skips existing files outright.
@@ -152,13 +197,16 @@ def install_skills(
 
     written: list[Path] = []
     skipped: list[Path] = []
-    for name, filename, text in iter_bundled_skills():
-        if layout == "claude":
-            target = dest / "skills" / name / "SKILL.md"
-        else:
-            target = dest / filename
-        result = _write(target, text, force, confirm)
-        (written if result is not None else skipped).append(target)
+    for skill in iter_bundled_skills():
+        for rel, text in sorted(skill.files.items()):
+            if layout == "claude":
+                target = dest / "skills" / skill.name / Path(rel)
+            elif len(skill.files) == 1:
+                target = dest / skill.source
+            else:
+                target = dest / skill.source / Path(rel)
+            result = _write(target, text, force, confirm)
+            (written if result is not None else skipped).append(target)
     return written, skipped
 
 
@@ -406,6 +454,13 @@ def env_template() -> str:
     return (
         "# Azure DevOps configuration for devops-utils (azdo tools / MCP).\n"
         "# No machine credentials are read; only these env vars are used.\n"
+        "#\n"
+        "# Save a filled-in copy WITHOUT the .example suffix and the CLI and MCP\n"
+        "# server load it automatically (first existing file wins, never merged;\n"
+        "# real environment variables always win):\n"
+        "#   1. the path in DEVOPS_UTILS_ENV_FILE\n"
+        "#   2. ./.env.devops-utils    (project; add it to .gitignore)\n"
+        "#   3. ~/.devops-utils.env    (user; %USERPROFILE% on Windows)\n"
         "\n"
         "# Cloud: https://dev.azure.com/{org} | on-prem: https://server/tfs/{collection}\n"
         "AZURE_DEVOPS_ORG_URL=\n"

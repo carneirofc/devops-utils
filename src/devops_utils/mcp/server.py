@@ -15,6 +15,7 @@ from devops_utils.agent import tools as agent_tools
 from devops_utils.core.confirmation import SKIP_CONFIRMATION_ENV
 from devops_utils.core.confirmation import skip_confirmation as _skip_confirmation
 from devops_utils.core.encoding import configure_stderr
+from devops_utils.core.envfile import load_env_files
 from devops_utils.core.sanitizer import sanitize as _sanitize
 
 # All write tools gated behind a human confirmation (elicitation) prompt. Kept
@@ -186,8 +187,12 @@ def main() -> None:
     bytes; reconfiguring them here would layer a second wrapper over the same
     handles and, worse, let ``backslashreplace`` corrupt a frame instead of
     letting the serializer escape it.
+
+    The env file is loaded here because GUI launchers (Claude Desktop, Claude
+    Code on Windows) start the server without the user's shell session vars.
     """
     configure_stderr()
+    load_env_files()
     _build_server().run()
 
 

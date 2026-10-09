@@ -1,6 +1,6 @@
 ---
 name: setup-issue-tracker
-description: Guided, prompt-based setup of a repo's Azure DevOps issue-tracker config — asks for org URL, project, parent Epic, Area Path, and default tags, validates each against the live organization, then writes docs/agents/issue-tracker.md via `devops-utils setup tracker`.
+description: Guided setup of a repo's Azure DevOps issue-tracker config — asks for org URL, project, parent Epic, Area Path, default tags, and done state, validates each against the live organization, then writes docs/agents/issue-tracker.md via devops-utils setup tracker. Use when a repo should start tracking its issues as Azure DevOps work items, or when its tracker defaults need changing.
 ---
 
 # Set up the issue tracker (prompt-based)

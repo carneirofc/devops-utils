@@ -6,7 +6,10 @@ A limited, LLM-friendly interface to Azure DevOps work items, working against bo
 ## Configuration (no machine credentials)
 
 Credentials are never read from the machine (no `az` CLI, credential files, or
-Windows credential store). Everything comes from environment variables:
+Windows credential store). Everything comes from environment variables —
+set directly, or loaded from the first existing env file of
+`$DEVOPS_UTILS_ENV_FILE`, `./.env.devops-utils`, `~/.devops-utils.env` (real
+environment variables win; see the install guide):
 
 | Variable | Required | Notes |
 | --- | --- | --- |
@@ -46,7 +49,8 @@ with the MCP server via `src/devops_utils/core/confirmation.py`.
 
 The preview, the `(dry run — not applied)` marker, and the prompt all go to
 **stderr**, so stdout carries nothing but the command's JSON result and
-`azdo create … --yes | jq .id` works. With `--dry-run`, or when the prompt is
+`azdo create … --yes -o id` (or `| jq .id`) works.
+With `--dry-run`, or when the prompt is
 declined, stdout is empty and the exit code is 0.
 
 ## Surfaces
