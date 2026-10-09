@@ -103,6 +103,16 @@ Triage uses the default label vocabulary (`needs-triage`, `needs-info`, `ready-f
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+## Arch package
+
+`packaging/arch/PKGBUILD` builds `devops-utils-git` from `$PKG_SOURCE`
+(default: GitHub). `scripts/package.sh` points it at this checkout's committed
+HEAD and runs makepkg on a copy in `~/.cache/arch-build/devops-utils`.
+`scripts/lib.sh` is shared verbatim with the carneirofc scraper, fzonetrack,
+seanime and readest repos (edit it in one, copy it to the others); only
+`scripts/project.sh` is local. `check()` runs the suites that need no extra;
+keep that list in step when a test file starts importing one.
+
 ## Verification
 
 Run the checks CI runs (`.github/workflows/lint.yml`, `security.yml`, `pages.yml`):

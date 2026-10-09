@@ -43,6 +43,7 @@ and `[all]` covers everything. Or install it the usual way:
 ```bash
 pip install "devops-utils[all]"        # or [azure] / [mcp] / [tui] / [qt]
 uv tool install "devops-utils[all]"    # isolated, always on PATH
+scripts/package.sh -si                 # Arch: build this checkout as devops-utils-git
 ```
 
 Details, the full extras table, and Azure DevOps credential setup:
