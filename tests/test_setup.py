@@ -16,7 +16,7 @@ AZDO_ENV_KEYS = (
 
 
 def test_bundled_skills_are_discoverable():
-    names = {name for name, _filename, _text in install.iter_bundled_skills()}
+    names = {skill.name for skill in install.iter_bundled_skills()}
     assert "azure-devops-work-items" in names
     assert "azure-devops-research" in names
     assert "git-history-workitems" in names
@@ -26,7 +26,9 @@ def test_bundled_skills_are_discoverable():
 def test_setup_skills_flat_layout(tmp_path):
     result = CliRunner().invoke(cli, ["setup", "skills", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "azure-devops.md").exists()
+    # A directory skill keeps its reference files beside SKILL.md.
+    assert (tmp_path / "azure-devops" / "SKILL.md").exists()
+    assert (tmp_path / "azure-devops" / "reference" / "operations.md").exists()
     assert (tmp_path / "sanitize.md").exists()
 
 
@@ -36,9 +38,20 @@ def test_setup_skills_claude_layout(tmp_path):
         ["setup", "skills", "--dest", str(tmp_path), "--claude-layout"],
     )
     assert result.exit_code == 0, result.output
-    skill = tmp_path / "skills" / "azure-devops-work-items" / "SKILL.md"
+    skill_dir = tmp_path / "skills" / "azure-devops-work-items"
+    skill = skill_dir / "SKILL.md"
     assert skill.exists()
     assert "name: azure-devops-work-items" in skill.read_text(encoding="utf-8")
+    # Every reference linked from SKILL.md ships with it.
+    for ref in (
+        "operations",
+        "fields-and-scheduling",
+        "links-and-builds",
+        "bulk-apply",
+        "examples",
+    ):
+        assert f"reference/{ref}.md" in skill.read_text(encoding="utf-8")
+        assert (skill_dir / "reference" / f"{ref}.md").exists()
 
 
 def test_setup_mcp_registers_uvx_server_by_default(tmp_path):
@@ -90,7 +103,7 @@ def test_setup_env_writes_all_keys(tmp_path):
 
 
 def test_setup_skips_existing_without_force(tmp_path):
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(cli, ["setup", "skills", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
@@ -99,7 +112,7 @@ def test_setup_skips_existing_without_force(tmp_path):
 
 
 def test_setup_prompt_yes_overwrites(tmp_path):
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(
         cli, ["setup", "skills", "--dest", str(tmp_path)], input="y\n"
@@ -110,7 +123,7 @@ def test_setup_prompt_yes_overwrites(tmp_path):
 
 
 def test_setup_prompt_no_keeps_existing(tmp_path):
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(
         cli, ["setup", "skills", "--dest", str(tmp_path)], input="n\n"
@@ -121,7 +134,7 @@ def test_setup_prompt_no_keeps_existing(tmp_path):
 
 
 def test_setup_prompt_diff_then_overwrite(tmp_path):
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(
         cli, ["setup", "skills", "--dest", str(tmp_path)], input="d\ny\n"
@@ -133,7 +146,7 @@ def test_setup_prompt_diff_then_overwrite(tmp_path):
 
 
 def _seed_two_skills(tmp_path):
-    targets = [tmp_path / "azure-devops.md", tmp_path / "sanitize.md"]
+    targets = [tmp_path / "find-workitems.md", tmp_path / "sanitize.md"]
     for target in targets:
         target.write_text("SENTINEL", encoding="utf-8")
     return targets
@@ -170,7 +183,7 @@ def test_setup_identical_content_is_not_prompted(tmp_path):
 
 
 def test_setup_yes_flag_overwrites_without_prompting(tmp_path):
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(cli, ["setup", "skills", "--dest", str(tmp_path), "-y"])
     assert result.exit_code == 0, result.output
@@ -181,7 +194,7 @@ def test_setup_yes_flag_overwrites_without_prompting(tmp_path):
 def test_setup_skip_confirmation_env_keeps_existing(tmp_path, monkeypatch):
     """Unattended runs must keep files, not clobber them."""
     monkeypatch.setenv("DEVOPS_UTILS_SKIP_CONFIRMATION", "1")
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(
         cli, ["setup", "skills", "--dest", str(tmp_path)], input="y\n"
@@ -192,7 +205,7 @@ def test_setup_skip_confirmation_env_keeps_existing(tmp_path, monkeypatch):
 
 def test_setup_all_shares_one_answer_across_steps(tmp_path):
     CliRunner().invoke(cli, ["setup", "all", "--dest", str(tmp_path), "--force"])
-    skill = tmp_path / "azure-devops.md"
+    skill = tmp_path / "find-workitems.md"
     agent = tmp_path / "agents" / "azdo-build-analyst.md"
     env = tmp_path / ".env.devops-utils.example"
     for target in (skill, agent, env):
@@ -233,7 +246,7 @@ def test_setup_mcp_prompt_accepted_replaces_entry_and_keeps_siblings(tmp_path):
 
 
 def test_setup_force_overwrites(tmp_path):
-    target = tmp_path / "azure-devops.md"
+    target = tmp_path / "find-workitems.md"
     target.write_text("SENTINEL", encoding="utf-8")
     result = CliRunner().invoke(
         cli, ["setup", "skills", "--dest", str(tmp_path), "--force"]
@@ -377,7 +390,7 @@ def test_setup_tracker_cli(tmp_path):
 def test_setup_all_skips_mcp_by_default(tmp_path):
     result = CliRunner().invoke(cli, ["setup", "all", "--dest", str(tmp_path)])
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "azure-devops.md").exists()
+    assert (tmp_path / "find-workitems.md").exists()
     assert (tmp_path / "azure-devops-research.md").exists()
     assert (tmp_path / "agents" / "azdo-build-analyst.md").exists()
     assert (tmp_path / ".env.devops-utils.example").exists()
@@ -393,3 +406,41 @@ def test_setup_all_with_mcp_registers_uvx_server(tmp_path):
     assert result.exit_code == 0, result.output
     data = json.loads((tmp_path / ".mcp.json").read_text(encoding="utf-8"))
     assert data["mcpServers"]["devops-utils"]["command"] == "uvx"
+
+
+def _frontmatter(text):
+    lines = text.splitlines()
+    assert lines[0] == "---"
+    end = lines.index("---", 1)
+    return dict(line.split(": ", 1) for line in lines[1:end])
+
+
+def test_bundled_agents_declare_name_description_tools_and_model():
+    for _name, filename, text in install.iter_bundled_agents():
+        meta = _frontmatter(text)
+        for key in ("name", "description", "tools", "model"):
+            assert meta.get(key), f"{filename} lacks {key}"
+        assert meta["model"] in {"haiku", "sonnet", "opus", "inherit"}
+
+
+def test_bundled_skills_follow_authoring_limits():
+    """Anthropic skill guidance: say *when* to trigger; keep SKILL.md < 500 lines."""
+    for skill in install.iter_bundled_skills():
+        meta = _frontmatter(skill.text)
+        assert meta["name"] == skill.name
+        assert len(meta["name"]) <= 64
+        description = meta["description"]
+        assert len(description) <= 1024
+        assert "Use when" in description or "Use before" in description, skill.name
+        assert len(skill.text.splitlines()) < 500, skill.name
+        # Every reference file the skill ships is linked from SKILL.md.
+        for rel in skill.files:
+            if rel != "SKILL.md":
+                assert rel in skill.text, f"{skill.name}: {rel} not linked"
+
+
+def test_bundled_skills_do_not_require_jq():
+    """jq is rarely installed on Windows; --select / -o id cover its uses."""
+    for skill in install.iter_bundled_skills():
+        for rel, text in skill.files.items():
+            assert "| jq" not in text, f"{skill.name}/{rel} pipes to jq"

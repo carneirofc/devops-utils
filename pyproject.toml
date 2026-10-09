@@ -65,6 +65,7 @@ packages = ["src/devops_utils"]
 # / `setup agents` can read them via importlib.resources.
 artifacts = [
     "src/devops_utils/agent/skills/*.md",
+    "src/devops_utils/agent/skills/**/*.md",
     "src/devops_utils/agent/agents/*.md",
 ]
 

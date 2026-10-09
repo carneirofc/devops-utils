@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Env-file credentials.** The CLI and MCP server load the first existing
+  env file of `$DEVOPS_UTILS_ENV_FILE`, `./.env.devops-utils`, or
+  `~/.devops-utils.env` at start-up — no `setx`/`$env:` juggling on Windows,
+  and GUI-launched MCP servers finally see the settings. Real environment
+  variables win, files are never merged, only `AZURE_DEVOPS_*` keys are read,
+  and an org URL from a file is ignored unless the token comes from the same
+  file, so a cloned repo can't redirect your token.
+- **Shell-neutral output for `devops-utils azdo`.** `-o id` prints bare ids,
+  `--select PATH` (repeatable, `/`-separated, e.g.
+  `fields/Microsoft.VSTS.Scheduling.TargetDate`) projects the result, and
+  `-o raw` prints selected scalars unquoted — the common `jq` recipes now work
+  unchanged in PowerShell and cmd.
+- **Multi-file skills.** A bundled skill may be a directory with `SKILL.md`
+  plus reference files; `setup skills` and the plugin tree install them all.
+- **Windows CI.** The test suite runs on `windows-latest` as well as Ubuntu.
+- `setup mcp` warns when `uvx` (or `devops-utils-mcp` with `--no-uvx`) is not
+  on `PATH`; `setup env` says where to save the filled-in file.
+
+### Changed
+
+- **Work-items skill split for progressive disclosure.** The 1,000-line
+  `azure-devops-work-items` skill is now a ~320-line `SKILL.md` (config,
+  Windows notes, write gate, hierarchy rules, return shape) plus five
+  `reference/` files loaded on demand; examples come in bash and PowerShell 7
+  and no longer need `jq`.
+- **Skill descriptions** now state what each skill does and when to use it,
+  so they trigger more reliably.
+- **Subagents** all declare a model (`azdo-build-analyst`: sonnet,
+  `azdo-repo-analyst`: haiku), stop with a setup hint when the MCP tools or
+  credentials are missing, and give a fixed reply shape.
+
 ## [0.12.0] - 2026-10-04
 
 ### Added

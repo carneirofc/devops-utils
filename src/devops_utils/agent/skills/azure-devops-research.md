@@ -1,6 +1,6 @@
 ---
 name: azure-devops-research
-description: Research Azure DevOps status read-only — my pending work items, filtering by type/state/tags, build definitions and run status, failure diagnosis via timeline and log tailing, and finding repos/files/code. Use when the question is "what's the status of X" rather than "change X".
+description: Read-only Azure DevOps research — pending and assigned-to-me work items, filters by type/state/tags/area/sprint, build definitions and run status, failure diagnosis via timeline and log tailing, and finding repos, files, and code. Use when the question is "what's the status of X", "why did the build fail", or "where is X" rather than "change X".
 ---
 
 # Azure DevOps research

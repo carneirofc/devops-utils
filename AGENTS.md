@@ -17,6 +17,18 @@ all, and unattended runs (no tty, or `DEVOPS_UTILS_SKIP_CONFIRMATION`) keep the
 existing files. The prompt lives in `setup.py`'s `_Overwriter`; `install.py`
 stays UI-free behind the `ConfirmOverwrite` callback.
 
+Bundled skills live in `src/devops_utils/agent/skills/` as either a flat
+`<stem>.md` or a `<stem>/` directory with `SKILL.md` plus `reference/*.md`
+(progressive disclosure for long skills, e.g. `azure-devops/`). Keep each
+`SKILL.md` under 500 lines, give every description a "Use when…" clause, link
+every reference file from `SKILL.md`, and never pipe to `jq` in examples —
+use `azdo … -o id` / `--select PATH` so snippets run in PowerShell too
+(`tests/test_setup.py` enforces all of this).
+
+The CLI and MCP server load the first existing env file of
+`$DEVOPS_UTILS_ENV_FILE`, `./.env.devops-utils`, `~/.devops-utils.env` at
+start-up (`src/devops_utils/core/envfile.py`); real env vars win.
+
 `devops-utils setup agents` installs three read-only Azure DevOps research
 subagents (`azdo-workitem-analyst`, `azdo-build-analyst`, `azdo-repo-analyst`)
 as `agents/<name>.md`. Sources: `src/devops_utils/agent/agents/`.

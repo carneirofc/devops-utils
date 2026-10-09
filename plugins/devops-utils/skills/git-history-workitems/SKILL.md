@@ -135,7 +135,9 @@ git log --use-mailmap --no-merges --reverse \
   --pretty=format:'%h|%ad|%an|%ae|%s'
 ```
 
-gives the full timeline (oldest first). For anything beyond the subject line,
+gives the full timeline (oldest first). The command runs unchanged in
+PowerShell (single quotes are literal there); in `cmd` swap them for double
+quotes. For anything beyond the subject line,
 inspect the actual change:
 
 ```bash
