@@ -232,3 +232,16 @@ def test_apply_plan_blocked_status_survives_list_output_schema(monkeypatch):
     assert not result.is_error
     assert result.structured_content["result"]["status"] == "blocked"
     assert reqs == []
+
+
+def test_apply_plan_links_only_update_through_mcp(monkeypatch):
+    pytest.importorskip("mcp")
+    monkeypatch.setenv("DEVOPS_UTILS_SKIP_CONFIRMATION", "1")
+    reqs: list = []
+    _mock_azdo_client(monkeypatch, reqs)
+    srv = server._build_server()
+    result = _run(srv.call_tool("azdo_apply_plan", {"plan": _LINKS_ONLY_PLAN}))
+    assert not result.is_error
+    assert [r["status"] for r in result.structured_content["result"]] == ["updated"]
+    assert len(reqs) == 1
+    assert reqs[0].method == "PATCH"

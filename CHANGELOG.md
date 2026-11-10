@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Bulk apply: links/comments-only updates work.** A plan item with `id` and
+  only `links` and/or `comments` (no field changes) failed with
+  `ValueError: nothing to update` in `devops-utils azdo apply` and the
+  `azdo_apply_plan` MCP tool. It now skips the field patch and sends the links
+  in one patch and each comment. An update with no fields, links or comments is
+  rejected at validation, before the confirmation prompt.
 - **MCP write tools return the confirmation gate's status instead of a bare
   tool error.** When elicitation is unavailable or declined, a write tool whose
   result is a list (`azdo_apply_plan`) answered `{"status": "blocked"}` or

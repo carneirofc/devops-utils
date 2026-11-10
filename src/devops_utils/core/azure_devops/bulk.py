@@ -47,6 +47,8 @@ Rules:
 - An item with ``id`` is an **update**; without it, a **create** (``type`` and
   ``title`` required). ``action: create|update`` may be given explicitly and is
   validated against the presence of ``id``.
+- An update needs at least one field, ``links`` or ``comments``; a
+  links/comments-only update sends no field patch, just the links and comments.
 - ``parent`` and the value of work-item link kinds (``parent``, ``child``,
   ``work_item``, ``predecessor``, ``successor``) accept ``ref:<name>`` — the
   referenced item must appear **earlier** in ``items``.
@@ -93,6 +95,16 @@ KNOWN_ITEM_KEYS = (
     "fields",
     "links",
     "comments",
+)
+
+# Named item keys an ``update`` sends as field patches (``fields`` aside).
+UPDATE_FIELD_KEYS = (
+    "state",
+    "assigned_to",
+    "title",
+    "description",
+    "area_path",
+    "iteration_path",
 )
 
 _REF_PREFIX = "ref:"
@@ -161,6 +173,16 @@ def validate_plan(plan: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]
             errors.append(f"{label}: action must be 'create' or 'update'")
         if action == "update" and not item.get("id"):
             errors.append(f"{label}: update requires 'id'")
+        if (
+            action == "update"
+            and not _has_field_changes(item)
+            and not item.get("links")
+            and not item.get("comments")
+        ):
+            errors.append(
+                f"{label}: nothing to update — give a field "
+                f"({'/'.join(UPDATE_FIELD_KEYS)}/fields), 'links' or 'comments'"
+            )
         if action == "create" and item.get("id"):
             errors.append(f"{label}: create must not carry 'id'")
         if action == "create":
@@ -322,6 +344,13 @@ def _resolve_ref(value: Any, ref_ids: dict[str, int]) -> Any:
     return value
 
 
+def _has_field_changes(item: dict[str, Any]) -> bool:
+    """Whether an update item sets any field ``update_work_item`` patches."""
+    return any(item.get(key) is not None for key in UPDATE_FIELD_KEYS) or bool(
+        item.get("fields")
+    )
+
+
 def _apply_item(
     client: AzureDevOpsClient,
     item: dict[str, Any],
@@ -347,7 +376,7 @@ def _apply_item(
         # applied as a follow-up patch so e.g. historical work can land Closed.
         if item.get("state"):
             wi = update_work_item(client, wi["id"], state=item["state"])
-    else:
+    elif _has_field_changes(item):
         wi = update_work_item(
             client,
             int(item["id"]),
@@ -359,6 +388,10 @@ def _apply_item(
             iteration_path=item.get("iteration_path"),
             fields=item.get("fields"),
         )
+    else:
+        # Links/comments-only update: no field patch; the links patch and the
+        # comment patches below carry the whole change.
+        wi = {"id": int(item["id"]), "url": None}
 
     links = item.get("links") or []
     if links:

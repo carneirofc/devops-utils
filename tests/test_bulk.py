@@ -256,6 +256,64 @@ def test_apply_update_passes_fields_through():
     assert ops == [{"op": "add", "path": "/fields/Custom.RiskLevel", "value": "Low"}]
 
 
+def test_apply_links_only_update_sends_one_links_patch():
+    reqs: list[httpx.Request] = []
+    results = apply_plan(
+        _client(_echo_ids(reqs)),
+        {
+            "project": "P",
+            "items": [
+                {
+                    "id": 660700,
+                    "links": [
+                        {"kind": "work_item", "value": "660380"},
+                        {"kind": "hyperlink", "value": "https://a"},
+                    ],
+                }
+            ],
+        },
+    )
+    assert results == [
+        {
+            "ref": None,
+            "action": "update",
+            "id": 660700,
+            "url": "u/660700",
+            "status": "updated",
+        }
+    ]
+    # No field patch: the single request is the links patch.
+    assert len(reqs) == 1
+    assert reqs[0].method == "PATCH"
+    assert reqs[0].url.path.endswith("/workitems/660700")
+    ops = _patch_ops(reqs[0])
+    assert [op["path"] for op in ops] == ["/relations/-", "/relations/-"]
+    assert ops[0]["value"]["url"].endswith("/workItems/660380")
+
+
+def test_apply_comments_only_update_adds_each_comment():
+    reqs: list[httpx.Request] = []
+    results = apply_plan(
+        _client(_echo_ids(reqs)),
+        {"items": [{"id": 7, "comments": ["first", "second"]}]},
+    )
+    assert [r["status"] for r in results] == ["updated"]
+    assert results[0]["id"] == 7
+    assert len(reqs) == 2
+    assert [_patch_ops(r) for r in reqs] == [
+        [{"op": "add", "path": "/fields/System.History", "value": "first"}],
+        [{"op": "add", "path": "/fields/System.History", "value": "second"}],
+    ]
+
+
+def test_validate_update_with_nothing_to_change_fails():
+    with pytest.raises(PlanError, match="nothing to update"):
+        validate_plan({"items": [{"id": 7}]})
+    # links or comments alone are a valid update
+    validate_plan({"items": [{"id": 7, "links": [{"kind": "build", "value": "1"}]}]})
+    validate_plan({"items": [{"id": 7, "comments": ["c"]}]})
+
+
 def test_apply_continues_after_failure_and_fails_dependents():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST" and "$Feature" in str(request.url):
@@ -376,6 +434,28 @@ def test_cli_apply_out_writes_results_file(tmp_path, monkeypatch):
     )
     assert result.exit_code == 0, result.output
     assert json.loads(out.read_text(encoding="utf-8")) == stub_results
+
+
+LINKS_ONLY_PLAN = """\
+project: EngenhariaSoftware
+items:
+  - id: 660700
+    links: [{kind: work_item, value: '660380'}]
+"""
+
+
+def test_cli_apply_links_only_update_applies(tmp_path, monkeypatch):
+    reqs: list[httpx.Request] = []
+    monkeypatch.setattr(
+        "devops_utils.agent.tools._azdo_client", lambda: _client(_echo_ids(reqs))
+    )
+    plan = tmp_path / "plan.yml"
+    plan.write_text(LINKS_ONLY_PLAN, encoding="utf-8")
+    result = CliRunner().invoke(azdo, ["apply", str(plan), "--yes"])
+    assert result.exit_code == 0, result.output
+    assert [r["status"] for r in json.loads(result.stdout)] == ["updated"]
+    assert len(reqs) == 1
+    assert _patch_ops(reqs[0])[0]["path"] == "/relations/-"
 
 
 def test_cli_apply_invalid_plan_errors_before_confirmation(tmp_path):
