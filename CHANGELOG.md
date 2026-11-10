@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scripts/package.sh` builds it from the checkout's committed HEAD (`-si` to
   install). The extras' packages are `optdepends`.
 
+### Fixed
+
+- **MCP write tools return the confirmation gate's status instead of a bare
+  tool error.** When elicitation is unavailable or declined, a write tool whose
+  result is a list (`azdo_apply_plan`) answered `{"status": "blocked"}` or
+  `"cancelled"`, which failed the MCP server's output-schema validation and
+  surfaced only as "Error executing tool azdo_apply_plan". Gated tools now declare the
+  status mapping in their output type.
+
 ## [0.13.0] - 2026-10-09
 
 ### Added

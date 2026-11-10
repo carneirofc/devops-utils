@@ -189,3 +189,46 @@ def test_server_registers_gated_tools_async_with_context_and_clean_schema():
         gated = srv._tool_manager.get_tool(name)
         assert gated.is_async
         assert gated.context_kwarg == "ctx"
+
+
+# --------------------------------------------------------------------------- #
+# end-to-end through MCPServer (no session → elicitation unavailable)
+# --------------------------------------------------------------------------- #
+_LINKS_ONLY_PLAN = (
+    "project: EngenhariaSoftware\n"
+    "items:\n"
+    "  - id: 660700\n"
+    "    links: [{kind: work_item, value: '660380'}]\n"
+)
+
+
+def _mock_azdo_client(monkeypatch, store: list) -> None:
+    import httpx
+
+    from devops_utils.core.azure_devops import AzureDevOpsClient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        store.append(request)
+        return httpx.Response(200, json={"id": 660700, "fields": {}, "url": "u/1"})
+
+    monkeypatch.setattr(
+        agent_tools,
+        "_azdo_client",
+        lambda: AzureDevOpsClient(
+            org_url="https://x/c", token="t", transport=httpx.MockTransport(handler)
+        ),
+    )
+
+
+def test_apply_plan_blocked_status_survives_list_output_schema(monkeypatch):
+    # A list-returning write tool must still be able to return the gate's
+    # status mapping instead of failing the server's output validation.
+    pytest.importorskip("mcp")
+    monkeypatch.delenv("DEVOPS_UTILS_SKIP_CONFIRMATION", raising=False)
+    reqs: list = []
+    _mock_azdo_client(monkeypatch, reqs)
+    srv = server._build_server()
+    result = _run(srv.call_tool("azdo_apply_plan", {"plan": _LINKS_ONLY_PLAN}))
+    assert not result.is_error
+    assert result.structured_content["result"]["status"] == "blocked"
+    assert reqs == []

@@ -119,11 +119,31 @@ def _confirm_write(fn: Callable[..., Any], ctx_type: type) -> Callable[..., Any]
     ctx_param = inspect.Parameter(
         "ctx", inspect.Parameter.KEYWORD_ONLY, annotation=ctx_type
     )
+    # The gate may answer with a ``blocked``/``cancelled`` status mapping instead
+    # of ``fn``'s result, so the declared return widens to include a dict —
+    # otherwise MCPServer's output-schema validation rejects e.g. a ``list``
+    # tool's status mapping and the client only sees a bare tool error.
+    annotations: dict[str, Any] = {**fn.__annotations__, "ctx": ctx_type}
+    return_type = _gate_return_type(fn_sig.return_annotation)
+    if return_type is inspect.Signature.empty:
+        annotations.pop("return", None)
+    else:
+        annotations["return"] = return_type
     wrapper.__signature__ = fn_sig.replace(  # type: ignore[attr-defined]
-        parameters=[*fn_sig.parameters.values(), ctx_param]
+        parameters=[*fn_sig.parameters.values(), ctx_param],
+        return_annotation=return_type,
     )
-    wrapper.__annotations__ = {**fn.__annotations__, "ctx": ctx_type}
+    wrapper.__annotations__ = annotations
     return wrapper
+
+
+def _gate_return_type(declared: Any) -> Any:
+    """Return ``declared`` widened so a gate status mapping also validates."""
+    if declared is inspect.Signature.empty:
+        return declared
+    if isinstance(declared, str):  # postponed annotation we can't widen safely
+        return inspect.Signature.empty
+    return declared | dict[str, Any]
 
 
 def _build_server():
