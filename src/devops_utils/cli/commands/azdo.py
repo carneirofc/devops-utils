@@ -90,7 +90,7 @@ def _confirm_or_dry_run(preview: dict[str, Any], *, yes: bool, dry_run: bool) ->
         return False
     if yes or skip_confirmation():
         return True
-    return click.confirm("Apply this change?", default=False, err=True)
+    return bool(click.confirm("Apply this change?", default=False, err=True))
 
 
 @click.group("azdo")
